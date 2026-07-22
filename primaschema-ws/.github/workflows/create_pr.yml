@@ -1,0 +1,38 @@
+name: Create scheme PR
+
+on:
+  repository_dispatch:
+    types: [create-scheme-pr]
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create PR in primer schemes repo
+        env:
+          GH_TOKEN: ${{ secrets.PRIMER_SCHEMES_TOKEN }}
+          BRANCH: ${{ github.event.client_payload.branch }}
+          NAME: ${{ github.event.client_payload.name }}
+          VERSION: ${{ github.event.client_payload.version }}
+          AMPLICON_SIZE: ${{ github.event.client_payload.amplicon_size }}
+          PRIMER_SCHEMES_REPO: ${{ vars.PRIMER_SCHEMES_REPO }}
+        run: |
+          gh pr create \
+            --repo "$PRIMER_SCHEMES_REPO" \
+            --head "$BRANCH" \
+            --base main \
+            --title "Add scheme: $NAME $VERSION" \
+            --body "$(cat <<EOF
+          ## New scheme submission
+
+          | Field | Value |
+          |-------|-------|
+          | Name | \`$NAME\` |
+          | Version | \`$VERSION\` |
+          | Amplicon size | ${AMPLICON_SIZE} bp |
+
+          Submitted via primaschema-submit portal. Automated validation passed.
+
+          **Reviewers:** please run \`primaschema validate\` locally before merging.
+          EOF
+          )"

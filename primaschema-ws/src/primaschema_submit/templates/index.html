@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>primaschema — Validate Scheme</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    .field-label { @apply block text-sm font-medium text-gray-700 mb-1; }
+    .field-input { @apply w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500; }
+    .field-select { @apply w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500; }
+    .btn-add { @apply text-sm text-blue-600 hover:text-blue-800 font-medium; }
+    .btn-remove { @apply text-sm text-red-500 hover:text-red-700 ml-2; }
+    .section-title { @apply text-base font-semibold text-gray-800 mb-3 mt-6 border-b pb-1; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen py-8">
+<div class="max-w-3xl mx-auto px-4">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">primaschema</h1>
+    <p class="text-gray-500 text-sm mt-1">Validate a primer scheme — fill in the metadata and upload the required files.</p>
+  </div>
+
+  <div x-data="schemeForm()" x-cloak>
+    <!-- Hidden field carrying serialised metadata JSON -->
+    <input type="hidden" name="metadata" :value="serialisedMetadata()">
+
+    <form id="validate-form" @submit.prevent="submitForm">
+
+      <!-- ── Core fields ── -->
+      <div class="bg-white rounded-lg shadow-sm p-6">
+        <p class="section-title" style="margin-top:0">Core metadata</p>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="field-label">Name <span class="text-red-500">*</span></label>
+            <input class="field-input" type="text" x-model="form.name"
+                   placeholder="e.g. sars-cov-2" pattern="^[\da-z0-9_.\-]+$">
+            <p class="text-xs text-gray-400 mt-1">Lowercase, digits, hyphens, dots, underscores</p>
+          </div>
+          <div>
+            <label class="field-label">Amplicon size (bp) <span class="text-red-500">*</span></label>
+            <input class="field-input" type="number" x-model.number="form.amplicon_size"
+                   placeholder="e.g. 400" min="1">
+          </div>
+          <div>
+            <label class="field-label">Version <span class="text-red-500">*</span></label>
+            <input class="field-input" type="text" x-model="form.version"
+                   placeholder="e.g. v1.0.0">
+            <p class="text-xs text-gray-400 mt-1">Format: v1.2.3 or v1.2.3-rc1</p>
+          </div>
+          <div>
+            <label class="field-label">Status <span class="text-red-500">*</span></label>
+            <select class="field-select" x-model="form.status">
+              <option value="">— select —</option>
+              <template x-for="s in statusOptions" :key="s">
+                <option :value="s" x-text="s"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">License</label>
+            <select class="field-select" x-model="form.license">
+              <template x-for="l in licenseOptions" :key="l">
+                <option :value="l" x-text="l"></option>
+              </template>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Derived from</label>
+            <input class="field-input" type="text" x-model="form.derived_from"
+                   placeholder="Parent scheme name (optional)">
+          </div>
+          <div>
+            <label class="field-label">Date created</label>
+            <input class="field-input" type="date" x-model="form.date_created">
+          </div>
+          <div>
+            <label class="field-label">Date added</label>
+            <input class="field-input" type="date" x-model="form.date_added">
+          </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="mt-4">
+          <label class="field-label">Tags</label>
+          <div class="flex flex-wrap gap-3 mt-1">
+            <template x-for="tag in tagOptions" :key="tag">
+              <label class="flex items-center gap-1 text-sm cursor-pointer">
+                <input type="checkbox" :value="tag" x-model="form.tags" class="rounded">
+                <span x-text="tag"></span>
+              </label>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Contributors ── -->
+      <div class="bg-white rounded-lg shadow-sm p-6 mt-4">
+        <p class="section-title" style="margin-top:0">Contributors <span class="text-red-500">*</span></p>
+        <template x-for="(c, i) in form.contributors" :key="i">
+          <div class="grid grid-cols-3 gap-3 mb-3 items-end">
+            <div>
+              <label class="field-label">Name <span class="text-red-500">*</span></label>
+              <input class="field-input" type="text" x-model="c.name" placeholder="Full name">
+            </div>
+            <div>
+              <label class="field-label">Email</label>
+              <input class="field-input" type="email" x-model="c.email" placeholder="optional">
+            </div>
+            <div class="flex gap-2 items-end">
+              <div class="flex-1">
+                <label class="field-label">ORCID iD</label>
+                <input class="field-input" type="text" x-model="c.orcid_id" placeholder="0000-0000-0000-0000">
+              </div>
+              <button type="button" class="btn-remove mb-2" @click="form.contributors.splice(i,1)"
+                      x-show="form.contributors.length > 1">✕</button>
+            </div>
+          </div>
+        </template>
+        <button type="button" class="btn-add" @click="form.contributors.push({name:'',email:'',orcid_id:''})">
+          + Add contributor
+        </button>
+      </div>
+
+      <!-- ── Target organisms ── -->
+      <div class="bg-white rounded-lg shadow-sm p-6 mt-4">
+        <p class="section-title" style="margin-top:0">Target organisms <span class="text-red-500">*</span></p>
+        <template x-for="(o, i) in form.target_organisms" :key="i">
+          <div class="grid grid-cols-2 gap-3 mb-3 items-end">
+            <div>
+              <label class="field-label">Common name</label>
+              <input class="field-input" type="text" x-model="o.common_name" placeholder="e.g. SARS-CoV-2">
+            </div>
+            <div class="flex gap-2 items-end">
+              <div class="flex-1">
+                <label class="field-label">NCBI Tax ID</label>
+                <input class="field-input" type="text" x-model="o.ncbi_tax_id" placeholder="e.g. 2697049">
+              </div>
+              <button type="button" class="btn-remove mb-2" @click="form.target_organisms.splice(i,1)"
+                      x-show="form.target_organisms.length > 1">✕</button>
+            </div>
+          </div>
+        </template>
+        <button type="button" class="btn-add" @click="form.target_organisms.push({common_name:'',ncbi_tax_id:''})">
+          + Add organism
+        </button>
+      </div>
+
+      <!-- ── Algorithm (optional) ── -->
+      <div class="bg-white rounded-lg shadow-sm p-6 mt-4">
+        <p class="section-title" style="margin-top:0">Algorithm <span class="text-gray-400 font-normal text-sm">(optional)</span></p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="field-label">Name</label>
+            <input class="field-input" type="text" x-model="form.algorithm.name" placeholder="e.g. primalscheme3">
+          </div>
+          <div>
+            <label class="field-label">Version</label>
+            <input class="field-input" type="text" x-model="form.algorithm.version" placeholder="e.g. 1.0.0">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Checksums (optional) ── -->
+      <div class="bg-white rounded-lg shadow-sm p-6 mt-4">
+        <p class="section-title" style="margin-top:0">Checksums <span class="text-gray-400 font-normal text-sm">(optional — verified against uploaded files if provided)</span></p>
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label class="field-label">primer.bed SHA256</label>
+            <input class="field-input font-mono text-xs" type="text" x-model="form.checksums.primer_sha256"
+                   placeholder="64-character hex string">
+          </div>
+          <div>
+            <label class="field-label">reference.fasta SHA256</label>
+            <input class="field-input font-mono text-xs" type="text" x-model="form.checksums.reference_sha256"
+                   placeholder="64-character hex string">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Citations / Notes ── -->
+      <div class="bg-white rounded-lg shadow-sm p-6 mt-4">
+        <p class="section-title" style="margin-top:0">Citations &amp; notes <span class="text-gray-400 font-normal text-sm">(optional)</span></p>
+        <div class="mb-4">
+          <label class="field-label">Citations (one per line, DOIs preferred)</label>
+          <textarea class="field-input" rows="3" x-model="citationsText"
+                    placeholder="https://doi.org/10.1234/example"></textarea>
+        </div>
+        <div>
+          <label class="field-label">Notes (one per line)</label>
+          <textarea class="field-input" rows="2" x-model="notesText"></textarea>
+        </div>
+      </div>
+
+      <!-- ── File uploads ── -->
+      <div class="bg-white rounded-lg shadow-sm p-6 mt-4">
+        <p class="section-title" style="margin-top:0">File uploads <span class="text-red-500">*</span></p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="field-label">primer.bed <span class="text-red-500">*</span></label>
+            <input id="primer-bed-input" class="field-input" type="file" accept=".bed,.txt">
+          </div>
+          <div>
+            <label class="field-label">reference.fasta <span class="text-red-500">*</span></label>
+            <input id="reference-fasta-input" class="field-input" type="file" accept=".fasta,.fa,.fna,.txt">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Submit ── -->
+      <div class="mt-6 flex items-center gap-4">
+        <button type="submit"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-medium px-6 py-2 rounded shadow-sm disabled:opacity-50"
+                :disabled="submitting">
+          <span x-show="!submitting">Validate</span>
+          <span x-show="submitting">Validating…</span>
+        </button>
+        <span class="text-sm text-gray-400" x-show="submitting">Running checks…</span>
+      </div>
+
+    </form>
+
+    <!-- ── Result panel ── -->
+    <div x-show="result" x-cloak class="mt-6 bg-white rounded-lg shadow-sm p-6">
+      <div x-show="result && result.valid"
+           class="flex items-center gap-2 text-green-700 font-semibold text-lg mb-4">
+        <span>✓</span><span>Valid</span>
+      </div>
+      <div x-show="result && !result.valid"
+           class="flex items-center gap-2 text-red-700 font-semibold text-lg mb-4">
+        <span>✗</span><span>Invalid</span>
+      </div>
+
+      <!-- Errors list -->
+      <template x-if="result && result.errors && result.errors.length">
+        <ul class="text-sm text-red-700 space-y-1 mb-4">
+          <template x-for="err in result.errors" :key="err">
+            <li class="font-mono bg-red-50 rounded px-3 py-1" x-text="err"></li>
+          </template>
+        </ul>
+      </template>
+
+      <!-- Parsed scheme (collapsible) -->
+      <template x-if="result && result.scheme">
+        <details class="mt-2">
+          <summary class="text-sm text-gray-500 cursor-pointer hover:text-gray-700">
+            View normalised scheme JSON
+          </summary>
+          <pre class="mt-2 text-xs bg-gray-50 rounded p-3 overflow-auto max-h-96"
+               x-text="JSON.stringify(result.scheme, null, 2)"></pre>
+        </details>
+      </template>
+    </div>
+
+  </div><!-- /x-data -->
+
+</div><!-- /container -->
+
+<script>
+function schemeForm() {
+  return {
+    submitting: false,
+    result: null,
+    citationsText: '',
+    notesText: '',
+
+    statusOptions: ['DRAFT', 'TESTED', 'VALIDATED', 'DEPRECATED', 'WITHDRAWN'],
+    licenseOptions: ['CC0-1.0', 'CC-BY-4.0', 'CC-BY-SA-4.0', 'CC-BY-NC-4.0', 'CC-BY-NC-SA-4.0', 'CC-BY-ND-4.0', 'CC-BY-NC-ND-4.0'],
+    tagOptions: ['WASTE-WATER', 'CLINICAL', 'FULL-GENOME', 'MULTI-TARGET', 'PANEL', 'QPCR'],
+
+    form: {
+      schema_version: '1.0.0-alpha',
+      name: '',
+      amplicon_size: null,
+      version: '',
+      status: 'DRAFT',
+      license: 'CC-BY-SA-4.0',
+      tags: [],
+      derived_from: '',
+      date_created: '',
+      date_added: '',
+      contributors: [{ name: '', email: '', orcid_id: '' }],
+      target_organisms: [{ common_name: '', ncbi_tax_id: '' }],
+      algorithm: { name: '', version: '' },
+      checksums: { primer_sha256: '', reference_sha256: '' },
+    },
+
+    serialisedMetadata() {
+      // Build a clean copy — strip empty optional values
+      const d = { ...this.form };
+
+      // Required lists — strip empty string fields from objects
+      d.contributors = d.contributors
+        .filter(c => c.name.trim())
+        .map(c => stripEmpty(c));
+      d.target_organisms = d.target_organisms
+        .filter(o => o.common_name.trim() || o.ncbi_tax_id.trim())
+        .map(o => stripEmpty(o));
+
+      // Optional single values
+      if (!d.derived_from) delete d.derived_from;
+      if (!d.date_created) delete d.date_created;
+      if (!d.date_added) delete d.date_added;
+
+      // Algorithm
+      if (d.algorithm.name.trim()) {
+        d.algorithm = stripEmpty(d.algorithm);
+      } else {
+        delete d.algorithm;
+      }
+
+      // Checksums
+      const cs = stripEmpty(d.checksums);
+      if (Object.keys(cs).length) {
+        d.checksums = cs;
+      } else {
+        delete d.checksums;
+      }
+
+      // Citations and notes from textareas
+      d.citations = this.citationsText.split('\n').map(s => s.trim()).filter(Boolean);
+      d.notes = this.notesText.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!d.citations.length) delete d.citations;
+      if (!d.notes.length) delete d.notes;
+
+      return JSON.stringify(d);
+    },
+
+    async submitForm() {
+      const bedFile = document.getElementById('primer-bed-input').files[0];
+      const refFile = document.getElementById('reference-fasta-input').files[0];
+
+      if (!bedFile || !refFile) {
+        alert('Please select both primer.bed and reference.fasta files.');
+        return;
+      }
+
+      this.submitting = true;
+      this.result = null;
+
+      const fd = new FormData();
+      fd.append('metadata', this.serialisedMetadata());
+      fd.append('primer_bed', bedFile);
+      fd.append('reference_fasta', refFile);
+
+      try {
+        const resp = await fetch('/validate/full', { method: 'POST', body: fd });
+        this.result = await resp.json();
+      } catch (err) {
+        this.result = { valid: false, errors: [`Request failed: ${err}`] };
+      } finally {
+        this.submitting = false;
+      }
+    },
+  };
+}
+
+function stripEmpty(obj) {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '' && v !== null));
+}
+</script>
+</body>
+</html>
