@@ -67,7 +67,7 @@ class IndexPrimerScheme(BaseModel):
         default=None,
         description="""The original primer scheme from which the present scheme was derived.""",
     )
-    checksums: Optional[PrimerSchemeChecksums] = Field(
+    primer_scheme_checksums: Optional[PrimerSchemeChecksums] = Field(
         default=None,
         description="""SHA256 checksums for scheme files""",
     )
@@ -146,7 +146,7 @@ class IndexPrimerScheme(BaseModel):
             or PrimerSchemeLicense.CC_BY_SA_4FULL_STOP0,
             primer_scheme_development_status=scheme.primer_scheme_development_status,
             primer_scheme_derived_from=scheme.primer_scheme_derived_from,
-            checksums=scheme.checksums,
+            primer_scheme_checksums=scheme.primer_scheme_checksums,
             primer_scheme_creation_date=scheme.primer_scheme_creation_date,
             primer_scheme_submission_date=scheme.primer_scheme_submission_date,
             base_url=base_url,
@@ -240,7 +240,7 @@ class PrimerSchemeIndex(ConfiguredBaseModel):
         if index.primer_scheme_version in amplicon_size_level and strict:
             original = amplicon_size_level[index.primer_scheme_version]
 
-            if original.checksums != index.checksums:
+            if original.primer_scheme_checksums != index.primer_scheme_checksums:
                 raise ValueError(
                     f"checksums have changed for {index.relative_path}. Use Strict == False to allow."
                 )

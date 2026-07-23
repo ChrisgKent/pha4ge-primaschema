@@ -34,7 +34,7 @@
             "primer_scheme_vendor_url": "https://eurofinsgenomics.com"
         }
     ],
-    "checksums": {
+    "primer_scheme_checksums": {
         "primer_scheme_sha256": "6640cd47ce429efbf074d646f002ff495939934121dfb2dd78a925da2d1e6036",
         "reference_sequence_sha256": "b74b271645e893a879172021e14db7133dba85724cb1907a92628a359cb732ba"
     }

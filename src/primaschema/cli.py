@@ -526,7 +526,9 @@ class CLIPrimerScheme(PrimerScheme):
         Optional[PrimerSchemeGenerator], Parameter(parse=False)
     ] = None
     # Don't expose the checksums to cli
-    checksums: Annotated[PrimerSchemeChecksums | None, Parameter(parse=False)] = None
+    primer_scheme_checksums: Annotated[
+        PrimerSchemeChecksums | None, Parameter(parse=False)
+    ] = None
     # Override with Literal so Cyclopts displays proper SPDX strings instead of mangled enum names
     primer_scheme_license: Annotated[  # type: ignore
         Optional[_LicenseLiteral],
@@ -678,15 +680,15 @@ def create(
         )
 
         # Generate checksums
-        ps.checksums = PrimerSchemeChecksums(
+        ps.primer_scheme_checksums = PrimerSchemeChecksums(
             primer_scheme_sha256=sha256_checksum(tmp_version_level / PRIMER_FILE_NAME),
             reference_sequence_sha256=sha256_checksum(
                 tmp_version_level / REFERENCE_FILE_NAME
             ),
         )
         logger.debug(
-            f"Generated checksums for {PRIMER_FILE_NAME} ({ps.checksums.primer_scheme_sha256})"
-            f" and {REFERENCE_FILE_NAME} ({ps.checksums.reference_sequence_sha256})"
+            f"Generated checksums for {PRIMER_FILE_NAME} ({ps.primer_scheme_checksums.primer_scheme_sha256})"
+            f" and {REFERENCE_FILE_NAME} ({ps.primer_scheme_checksums.reference_sequence_sha256})"
         )
 
         # Write info.json to tmp
@@ -1249,7 +1251,7 @@ def _rebuild_one(
     logger.debug("Validating primer.bed against reference.fasta")
     validate_ref_and_bed(bls, str((info_path.parent / REFERENCE_FILE_NAME).absolute()))
     logger.debug("Computing sha256 checksums")
-    ps.checksums = PrimerSchemeChecksums(
+    ps.primer_scheme_checksums = PrimerSchemeChecksums(
         primer_scheme_sha256=sha256_checksum(info_path.parent / PRIMER_FILE_NAME),
         reference_sequence_sha256=sha256_checksum(
             info_path.parent / REFERENCE_FILE_NAME

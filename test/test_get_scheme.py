@@ -183,8 +183,12 @@ class TestDownloadSchemes(unittest.TestCase):
                 records = list(reader)
             expected_ref = serialize_fasta_records(records)
 
-            entry.checksums.primer_scheme_sha256 = _sha256_bytes(expected_primer)
-            entry.checksums.reference_sequence_sha256 = _sha256_bytes(expected_ref)
+            entry.primer_scheme_checksums.primer_scheme_sha256 = _sha256_bytes(
+                expected_primer
+            )
+            entry.primer_scheme_checksums.reference_sequence_sha256 = _sha256_bytes(
+                expected_ref
+            )
 
             with patch(
                 "primaschema.get_scheme._download_bytes",
@@ -294,7 +298,7 @@ class TestDownloadSchemes(unittest.TestCase):
         ps = _load_scheme()
         psi = _build_index(ps)
         entry = psi.primerschemes["artic"][400]["v4.1.0"]
-        entry.checksums = None
+        entry.primer_scheme_checksums = None
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -319,7 +323,7 @@ class TestDownloadSchemes(unittest.TestCase):
         ps = _load_scheme()
         psi = _build_index(ps)
         entry = psi.primerschemes["artic"][400]["v4.1.0"]
-        entry.checksums = None
+        entry.primer_scheme_checksums = None
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)

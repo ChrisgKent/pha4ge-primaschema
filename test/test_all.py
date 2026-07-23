@@ -64,11 +64,17 @@ def test_validate_autonormalize_primer_bed(tmp_path: Path):
     primer_path = scheme_dir / "primer.bed"
     primer_scheme = PrimerScheme.model_validate_json(info_path.read_text())
 
-    assert sha256_checksum(primer_path) != primer_scheme.checksums.primer_scheme_sha256
+    assert (
+        sha256_checksum(primer_path)
+        != primer_scheme.primer_scheme_checksums.primer_scheme_sha256
+    )
 
     validate_module.validate(info_path, strict=True, fix=True)
 
-    assert sha256_checksum(primer_path) == primer_scheme.checksums.primer_scheme_sha256
+    assert (
+        sha256_checksum(primer_path)
+        == primer_scheme.primer_scheme_checksums.primer_scheme_sha256
+    )
 
 
 def test_validate_autonormalize_reference_fasta(tmp_path: Path):
@@ -83,14 +89,14 @@ def test_validate_autonormalize_reference_fasta(tmp_path: Path):
 
     assert (
         sha256_checksum(reference_path)
-        != primer_scheme.checksums.reference_sequence_sha256
+        != primer_scheme.primer_scheme_checksums.reference_sequence_sha256
     )
 
     validate_module.validate(info_path, strict=True, fix=True)
 
     assert (
         sha256_checksum(reference_path)
-        == primer_scheme.checksums.reference_sequence_sha256
+        == primer_scheme.primer_scheme_checksums.reference_sequence_sha256
     )
 
 

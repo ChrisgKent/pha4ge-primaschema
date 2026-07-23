@@ -48,7 +48,7 @@ classes:
       - primer_scheme_details
       - primer_scheme_vendor
       - primer_scheme_generator
-      - checksums
+      - primer_scheme_checksums
       - primer_scheme_creation_date
       - primer_scheme_submission_date
 
@@ -260,10 +260,12 @@ slots:
     inlined_as_list: true
     aliases:
       - citations
-  checksums:
+  primer_scheme_checksums:
     description: "SHA256 checksums for scheme files"
     range: PrimerSchemeChecksums
     inlined: true
+    aliases:
+      - checksums
   primer_scheme_derived_from:
     slot_uri: GENEPIO:0100671
     description: "The original primer scheme from which the present scheme was derived."

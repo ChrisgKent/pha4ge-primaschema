@@ -28,7 +28,7 @@ _REPEATABLE_CLASS_GROUPS = {
 # to flat columns with no packing.
 _SINGULAR_CLASS_GROUPS = {
     "primer_scheme_generator": PrimerSchemeGenerator,
-    "checksums": PrimerSchemeChecksums,
+    "primer_scheme_checksums": PrimerSchemeChecksums,
 }
 
 # Repeatable scalar fields: a plain list of strings/enum values, packed into

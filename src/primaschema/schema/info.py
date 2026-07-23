@@ -174,7 +174,7 @@ class PrimerScheme(ConfiguredBaseModel):
     primer_scheme_details: Optional[list[str]] = Field(default=[], description="""Any additional information about a primer scheme outside of the primer scheme specification.""")
     primer_scheme_vendor: Optional[list[PrimerSchemeVendor]] = Field(default=[], description="""Vendors where one can purchase the primers described in the amplicon scheme or a kit containing these primers""")
     primer_scheme_generator: Optional[PrimerSchemeGenerator] = Field(default=None, description="""The algorithm (if any) used to generate this primer scheme""")
-    checksums: Optional[PrimerSchemeChecksums] = Field(default=None, description="""SHA256 checksums for scheme files""")
+    primer_scheme_checksums: Optional[PrimerSchemeChecksums] = Field(default=None, description="""SHA256 checksums for scheme files""")
     primer_scheme_creation_date: Optional[date] = Field(default=None, description="""The date the primer scheme was created.""")
     primer_scheme_submission_date: Optional[date] = Field(default=None, description="""The date the primer scheme was submitted to a repository.""")
 

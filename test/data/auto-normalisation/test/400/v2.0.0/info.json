@@ -30,7 +30,7 @@
     "primer_scheme_generator_name": "PrimalScheme",
     "primer_scheme_generator_version": "3.01"
   },
-  "checksums": {
+  "primer_scheme_checksums": {
     "primer_scheme_sha256": "f3154104f2ac9d94bc33d59067e1b00e0765a11c19dee9546b6596ae18b805f3",
     "reference_sequence_sha256": "9e08a5c6ccabc87074b46989335c3bacdb9662cd5aa3058451255ded8e436226"
   }

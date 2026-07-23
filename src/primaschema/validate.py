@@ -239,14 +239,14 @@ def validate_hashes(
         / primer_scheme.primer_scheme_version
     )
 
-    if not primer_scheme.checksums:
+    if not primer_scheme.primer_scheme_checksums:
         logger.warning(f"No checksums found for {scheme_subpath}")
         return
 
     # Check sha256 hash bedfile
     primer_path = infopath.parent / PRIMER_FILE_NAME
     primer_sha = sha256_checksum(primer_path)
-    if primer_sha != primer_scheme.checksums.primer_scheme_sha256:
+    if primer_sha != primer_scheme.primer_scheme_checksums.primer_scheme_sha256:
         logger.warning(
             f"primer.bed sha256 mismatch for {scheme_subpath}. Attempting to normalise and recheck."
         )
@@ -268,7 +268,10 @@ def validate_hashes(
                 f"Failed to normalise primer.bed for {scheme_subpath}: {exc}"
             )
 
-        if reformatted_sha == primer_scheme.checksums.primer_scheme_sha256:
+        if (
+            reformatted_sha
+            == primer_scheme.primer_scheme_checksums.primer_scheme_sha256
+        ):
             if fix:
                 BedLineParser.to_file(primer_path, header, bedlines)
                 primer_sha = reformatted_sha
@@ -281,13 +284,13 @@ def validate_hashes(
                 )
         else:
             raise ValueError(
-                f"{PRIMER_FILE_NAME} sha256 ({primer_sha} != info sha256 ({primer_scheme.checksums.primer_scheme_sha256}): {scheme_subpath}"
+                f"{PRIMER_FILE_NAME} sha256 ({primer_sha} != info sha256 ({primer_scheme.primer_scheme_checksums.primer_scheme_sha256}): {scheme_subpath}"
             )
 
     # Check sha256 hash ref
     reference_path = infopath.parent / REFERENCE_FILE_NAME
     reference_sha = sha256_checksum(reference_path)
-    if reference_sha != primer_scheme.checksums.reference_sequence_sha256:
+    if reference_sha != primer_scheme.primer_scheme_checksums.reference_sequence_sha256:
         logger.warning(
             f"reference.fasta sha256 mismatch for {scheme_subpath}. Attempting to normalise and recheck."
         )
@@ -306,7 +309,10 @@ def validate_hashes(
                 f"Failed to normalise reference.fasta for {scheme_subpath}: {exc}"
             )
 
-        if reformatted_sha == primer_scheme.checksums.reference_sequence_sha256:
+        if (
+            reformatted_sha
+            == primer_scheme.primer_scheme_checksums.reference_sequence_sha256
+        ):
             if fix:
                 write_fasta_records(reference_path, reference_records)
                 reference_sha = reformatted_sha
@@ -319,7 +325,7 @@ def validate_hashes(
                 )
         else:
             raise ValueError(
-                f"{REFERENCE_FILE_NAME} sha256 ({reference_sha}) != info sha256 ({primer_scheme.checksums.reference_sequence_sha256}): {scheme_subpath}"
+                f"{REFERENCE_FILE_NAME} sha256 ({reference_sha}) != info sha256 ({primer_scheme.primer_scheme_checksums.reference_sequence_sha256}): {scheme_subpath}"
             )
 
 

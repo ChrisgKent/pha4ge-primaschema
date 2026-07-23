@@ -382,14 +382,14 @@ def _require_checksums(index: IndexPrimerScheme, force: bool) -> None:
     Raises:
         DownloadError: If checksums are missing and force is False.
     """
-    if index.checksums is None:
+    if index.primer_scheme_checksums is None:
         if force:
             logger.warning("Missing checksums in index; continuing due to --force")
             return
         raise DownloadError("Checksums are required in the index")
     if (
-        not index.checksums.primer_scheme_sha256
-        or not index.checksums.reference_sequence_sha256
+        not index.primer_scheme_checksums.primer_scheme_sha256
+        or not index.primer_scheme_checksums.reference_sequence_sha256
     ):
         if force:
             logger.warning("Incomplete checksums in index; continuing due to --force")
@@ -561,17 +561,17 @@ def _download_scheme_entry(
                 scheme_bed.bedlines, str(tmp_scheme_dir / REFERENCE_FILE_NAME)
             )
 
-            if scheme.checksums:
-                if scheme.checksums.primer_scheme_sha256:
+            if scheme.primer_scheme_checksums:
+                if scheme.primer_scheme_checksums.primer_scheme_sha256:
                     _verify_checksum(
                         tmp_scheme_dir / PRIMER_FILE_NAME,
-                        scheme.checksums.primer_scheme_sha256,
+                        scheme.primer_scheme_checksums.primer_scheme_sha256,
                         force=force,
                     )
-                if scheme.checksums.reference_sequence_sha256:
+                if scheme.primer_scheme_checksums.reference_sequence_sha256:
                     _verify_checksum(
                         tmp_scheme_dir / REFERENCE_FILE_NAME,
-                        scheme.checksums.reference_sequence_sha256,
+                        scheme.primer_scheme_checksums.reference_sequence_sha256,
                         force=force,
                     )
 
