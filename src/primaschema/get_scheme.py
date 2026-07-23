@@ -64,6 +64,20 @@ def _ensure_https(url: str) -> None:
         raise ValueError(f"Only https URLs are allowed: {url}")
 
 
+def _reject_non_https_request(request: httpx.Request) -> None:
+    """httpx "request" event hook: re-validate scheme on every hop.
+
+    httpx.Client follows redirects internally by issuing further requests
+    without re-running any upfront scheme check - an initially-https:// URL
+    could redirect to an internal http:// address (or an attacker-controlled
+    https:// one), e.g. a cloud metadata endpoint. Registering this as a
+    request event hook makes it fire on every request in the redirect chain,
+    not just the first one.
+    """
+    if request.url.scheme != "https":
+        raise ValueError(f"Only https URLs are allowed: {request.url}")
+
+
 def _read_index_bytes(source: str) -> bytes:
     """Read index bytes from a URL or local path.
 
@@ -143,12 +157,15 @@ def _download_bytes(url: str, *, timeout: float | None = None) -> bytes:
         httpx.HTTPError: If the request fails.
     """
     _ensure_https(url)
-    with httpx.stream(
-        "GET",
-        url,
-        follow_redirects=True,
-        timeout=_resolve_timeout(timeout),
-    ) as resp:
+    with (
+        httpx.Client(event_hooks={"request": [_reject_non_https_request]}) as client,
+        client.stream(
+            "GET",
+            url,
+            follow_redirects=True,
+            timeout=_resolve_timeout(timeout),
+        ) as resp,
+    ):
         resp.raise_for_status()
         content_length = resp.headers.get("Content-Length")
         if content_length is not None:
