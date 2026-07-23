@@ -191,15 +191,45 @@ class PrimerSchemeIndex(ConfiguredBaseModel):
     ) -> list[IndexPrimerScheme]:
         """
         Returns all schemes matching the provided criteria.
+
+        Raises:
+            ValueError: If an entry's own fields disagree with the dict keys
+                (name/amplicon_size/version) it was filed under - this can
+                only happen with a hand-crafted or corrupted index JSON,
+                since add_index_primer_scheme() always files an entry under
+                keys derived from that same entry's fields.
         """
-        data: Any = self.primerschemes.get(name, {})
+        name_level = self.primerschemes.get(name, {})
 
         if amplicon_size:
-            data = data.get(int(amplicon_size), {})
+            amplicon_size = int(amplicon_size)
+            amplicon_size_level = name_level.get(amplicon_size, {})
             if version:
-                data = data.get(version, {})
+                entry = amplicon_size_level.get(version)
+                schemes = [entry] if entry is not None else []
+            else:
+                schemes = self.flatten(amplicon_size_level)
+        else:
+            schemes = self.flatten(name_level)
 
-        return self.flatten(data)
+        for scheme in schemes:
+            if scheme.primer_scheme_name != name:
+                raise ValueError(
+                    f"Corrupted index: entry filed under name {name!r} has "
+                    f"primer_scheme_name={scheme.primer_scheme_name!r}"
+                )
+            if amplicon_size and scheme.amplicon_size != amplicon_size:
+                raise ValueError(
+                    f"Corrupted index: entry filed under amplicon_size "
+                    f"{amplicon_size!r} has amplicon_size={scheme.amplicon_size!r}"
+                )
+            if version and scheme.primer_scheme_version != version:
+                raise ValueError(
+                    f"Corrupted index: entry filed under version {version!r} "
+                    f"has primer_scheme_version={scheme.primer_scheme_version!r}"
+                )
+
+        return schemes
 
     def add_index_primer_scheme(self, index: IndexPrimerScheme, strict=True):
         # Get or create the substructure

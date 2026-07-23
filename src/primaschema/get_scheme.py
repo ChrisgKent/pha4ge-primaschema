@@ -477,7 +477,6 @@ def _download_scheme_entry(
     timeout: float | None,
     check_output_exists: bool,
     suppress_log: bool,
-    requested_id: str | None = None,
 ) -> Path:
     """Download and validate a single scheme into a target root directory.
 
@@ -489,7 +488,6 @@ def _download_scheme_entry(
         sanitisation: RAW or CANONICAL output mode.
         timeout: Timeout in seconds for downloads.
         check_output_exists: Whether to check existing output dir.
-        requested_id: Optional requested scheme id for validation.
 
     Returns:
         Path to the downloaded scheme directory.
@@ -497,12 +495,6 @@ def _download_scheme_entry(
     Raises:
         DownloadError: If validation or download fails.
     """
-    if requested_id and scheme.relative_path != requested_id:
-        msg = f"Index entry path {scheme.relative_path} does not match requested {requested_id}"
-        if strict:
-            raise DownloadError(msg)
-        logger.warning(msg)
-
     _require_checksums(scheme, force=force)
 
     output_dir = (
@@ -660,7 +652,6 @@ def download_schemes(
                     timeout,
                     False,
                     True,
-                    scheme.relative_path,
                 ): scheme.relative_path
                 for scheme in schemes
             }
