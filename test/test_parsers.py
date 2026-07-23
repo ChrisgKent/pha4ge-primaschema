@@ -8,14 +8,19 @@ from primaschema.cli import (
     parse_target_organisms_pydantic,
     parse_vendor_single,
 )
-from primaschema.schema.info import Algorithm, Contributor, TargetOrganism, Vendor
+from primaschema.schema.info import (
+    PrimerSchemeGenerator,
+    PrimerSchemeContributor,
+    PrimerSchemeTargetOrganism,
+    PrimerSchemeVendor,
+)
 
-# --- Contributor Tests ---
+# --- PrimerSchemeContributor Tests ---
 
 
 def test_parse_contributor_single_object():
-    """parse_contributor_single passes through an already-constructed Contributor unchanged."""
-    c = Contributor(
+    """parse_contributor_single passes through an already-constructed PrimerSchemeContributor unchanged."""
+    c = PrimerSchemeContributor(
         primer_scheme_contributor_name="John Doe",
         primer_scheme_contributor_email="john@example.com",
     )
@@ -23,7 +28,7 @@ def test_parse_contributor_single_object():
 
 
 def test_parse_contributor_single_dict():
-    """parse_contributor_single constructs a Contributor from a plain dict."""
+    """parse_contributor_single constructs a PrimerSchemeContributor from a plain dict."""
     data = {
         "primer_scheme_contributor_name": "Jane Doe",
         "primer_scheme_contributor_email": "jane@example.com",
@@ -60,7 +65,7 @@ def test_parse_contributor_single_kv_string_short_keys():
 
 
 def test_parse_contributor_single_short_and_long_keys_equivalent():
-    """Short and fully-qualified keys produce the same Contributor."""
+    """Short and fully-qualified keys produce the same PrimerSchemeContributor."""
     short = parse_contributor_single(
         "name=KV User,email=kv@example.com,orcid=0000-0001-2345-6789"
     )
@@ -99,17 +104,17 @@ def test_parse_contributors_pydantic_list():
     assert result[1].primer_scheme_contributor_name == "User Two"
 
 
-# --- Vendor Tests ---
+# --- PrimerSchemeVendor Tests ---
 
 
 def test_parse_vendor_single_object():
-    """parse_vendor_single passes through an already-constructed Vendor unchanged."""
-    v = Vendor(primer_scheme_vendor_name="Acme Corp")
+    """parse_vendor_single passes through an already-constructed PrimerSchemeVendor unchanged."""
+    v = PrimerSchemeVendor(primer_scheme_vendor_name="Acme Corp")
     assert parse_vendor_single(v) == v
 
 
 def test_parse_vendor_single_dict():
-    """parse_vendor_single constructs a Vendor from a plain dict."""
+    """parse_vendor_single constructs a PrimerSchemeVendor from a plain dict."""
     data = {"primer_scheme_vendor_name": "Beta Inc"}
     v = parse_vendor_single(data)
     assert v.primer_scheme_vendor_name == "Beta Inc"
@@ -139,7 +144,7 @@ def test_parse_vendor_single_kv_string_short_keys():
 
 
 def test_parse_vendor_single_short_and_long_keys_equivalent():
-    """Short and fully-qualified keys produce the same Vendor."""
+    """Short and fully-qualified keys produce the same PrimerSchemeVendor."""
     short = parse_vendor_single(
         "name=Delta Co,kit_name=SuperKit,url=https://example.com"
     )
@@ -168,7 +173,7 @@ def test_parse_vendor_single_invalid():
         parse_vendor_single(123)
 
 
-# --- Algorithm Tests ---
+# --- PrimerSchemeGenerator Tests ---
 
 
 def test_parse_algorithm_none():
@@ -177,15 +182,15 @@ def test_parse_algorithm_none():
 
 
 def test_parse_algorithm_object():
-    """parse_algorithm passes through an already-constructed Algorithm unchanged."""
-    a = Algorithm(
+    """parse_algorithm passes through an already-constructed PrimerSchemeGenerator unchanged."""
+    a = PrimerSchemeGenerator(
         primer_scheme_generator_name="algo", primer_scheme_generator_version="1.0"
     )
     assert parse_algorithm(a) == a
 
 
 def test_parse_algorithm_dict():
-    """parse_algorithm constructs an Algorithm from a plain dict."""
+    """parse_algorithm constructs an PrimerSchemeGenerator from a plain dict."""
     data = {
         "primer_scheme_generator_name": "dict_algo",
         "primer_scheme_generator_version": "2.0",
@@ -217,17 +222,17 @@ def test_parse_algorithm_invalid():
         parse_algorithm(123)
 
 
-# --- TargetOrganism Tests ---
+# --- PrimerSchemeTargetOrganism Tests ---
 
 
 def test_parse_target_organism_single_object():
-    """parse_target_organism_single passes through an already-constructed TargetOrganism unchanged."""
-    to = TargetOrganism(primer_scheme_target_organism_name="Virus X")
+    """parse_target_organism_single passes through an already-constructed PrimerSchemeTargetOrganism unchanged."""
+    to = PrimerSchemeTargetOrganism(primer_scheme_target_organism_name="Virus X")
     assert parse_target_organism_single(to) == to
 
 
 def test_parse_target_organism_single_dict():
-    """parse_target_organism_single constructs a TargetOrganism from a plain dict."""
+    """parse_target_organism_single constructs a PrimerSchemeTargetOrganism from a plain dict."""
     data = {
         "primer_scheme_target_organism_name": "Virus Y",
         "primer_scheme_target_organism_ncbi_taxon_id": "12345",
@@ -261,7 +266,7 @@ def test_parse_target_organism_single_kv_string_short_keys():
 
 
 def test_parse_target_organism_single_short_and_long_keys_equivalent():
-    """Short and fully-qualified keys produce the same TargetOrganism."""
+    """Short and fully-qualified keys produce the same PrimerSchemeTargetOrganism."""
     short = parse_target_organism_single("name=Virus A,ncbi_taxon_id=11111")
     full = parse_target_organism_single(
         "primer_scheme_target_organism_name=Virus A,primer_scheme_target_organism_ncbi_taxon_id=11111"

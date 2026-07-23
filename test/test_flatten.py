@@ -7,7 +7,11 @@ from primaschema.schema.flatten import (
     flatten_scheme,
     unflatten_scheme,
 )
-from primaschema.schema.info import Contributor, TargetOrganism, Vendor
+from primaschema.schema.info import (
+    PrimerSchemeContributor,
+    PrimerSchemeTargetOrganism,
+    PrimerSchemeVendor,
+)
 from primaschema.schema.primer_scheme import PrimerScheme
 
 # --- _pack / _unpack ---
@@ -83,7 +87,7 @@ def test_pack_unpack_value_with_embedded_carriage_return():
 def _sample_scheme(**kwargs) -> PrimerScheme:
     from datetime import date
 
-    from primaschema.schema.info import SchemeStatus
+    from primaschema.schema.info import PrimerSchemeDevelopmentStatus
 
     defaults = dict(
         schema_version="1.0.0",
@@ -91,23 +95,23 @@ def _sample_scheme(**kwargs) -> PrimerScheme:
         amplicon_size=400,
         primer_scheme_version="v1.0.0",
         primer_scheme_contributor=[
-            Contributor(
+            PrimerSchemeContributor(
                 primer_scheme_contributor_name="Alice",
                 primer_scheme_contributor_email="alice@x.org",
             ),
-            Contributor(primer_scheme_contributor_name="Bob"),
+            PrimerSchemeContributor(primer_scheme_contributor_name="Bob"),
         ],
         primer_scheme_target_organism=[
-            TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2"),
+            PrimerSchemeTargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2"),
         ],
         primer_scheme_vendor=[
-            Vendor(primer_scheme_vendor_name="idt"),
-            Vendor(
+            PrimerSchemeVendor(primer_scheme_vendor_name="idt"),
+            PrimerSchemeVendor(
                 primer_scheme_vendor_name="Ac;me Inc",
                 primer_scheme_vendor_kit_name="Panel v1",
             ),
         ],
-        primer_scheme_development_status=SchemeStatus.DRAFT,
+        primer_scheme_development_status=PrimerSchemeDevelopmentStatus.DRAFT,
         primer_scheme_creation_date=date(2024, 1, 15),
     )
     defaults.update(kwargs)
@@ -139,11 +143,13 @@ def test_flatten_unflatten_round_trip_single_item_groups():
     quirk broke: one target organism with a name but no ncbi_taxon_id.
     """
     ps = _sample_scheme(
-        primer_scheme_contributor=[Contributor(primer_scheme_contributor_name="Alice")],
-        primer_scheme_target_organism=[
-            TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+        primer_scheme_contributor=[
+            PrimerSchemeContributor(primer_scheme_contributor_name="Alice")
         ],
-        primer_scheme_vendor=[Vendor(primer_scheme_vendor_name="idt")],
+        primer_scheme_target_organism=[
+            PrimerSchemeTargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+        ],
+        primer_scheme_vendor=[PrimerSchemeVendor(primer_scheme_vendor_name="idt")],
     )
     row = flatten_scheme(ps)
     restored = unflatten_scheme(row)

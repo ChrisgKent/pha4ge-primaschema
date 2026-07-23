@@ -45,15 +45,15 @@ from primaschema.schema.index import (
     update_index,
 )
 from primaschema.schema.info import (
-    Algorithm,
-    Checksums,
-    Contributor,
-    SchemeApplication,
-    SchemeLicense,
-    SchemeScope,
-    SchemeStatus,
-    TargetOrganism,
-    Vendor,
+    PrimerSchemeGenerator,
+    PrimerSchemeChecksums,
+    PrimerSchemeContributor,
+    PrimerSchemeApplication,
+    PrimerSchemeLicense,
+    PrimerSchemeScope,
+    PrimerSchemeDevelopmentStatus,
+    PrimerSchemeTargetOrganism,
+    PrimerSchemeVendor,
 )
 from primaschema.schema.info import (
     version as SCHEMA_VERSION,
@@ -72,7 +72,7 @@ from primaschema.validate import validate as validate_scheme
 
 logger = logging.getLogger(__name__)
 
-# Literal type built from SchemeLicense values so Cyclopts displays proper SPDX strings
+# Literal type built from PrimerSchemeLicense values so Cyclopts displays proper SPDX strings
 _LicenseLiteral = Literal[
     "CC0-1.0",
     "CC-BY-4.0",
@@ -86,7 +86,7 @@ _LicenseLiteral = Literal[
 # Patch PrimerScheme to fix cyclopts issue with string defaults for Enums
 # See https://github.com/pha4ge/primaschema/issues/new
 if isinstance(PrimerScheme.model_fields["primer_scheme_license"].default, str):
-    PrimerScheme.model_fields["primer_scheme_license"].default = SchemeLicense(
+    PrimerScheme.model_fields["primer_scheme_license"].default = PrimerSchemeLicense(
         PrimerScheme.model_fields["primer_scheme_license"].default
     )
 
@@ -162,40 +162,41 @@ _CONTRIBUTOR_KEY_PREFIXES = ("primer_scheme_contributor_", "primer_scheme_")
 _VENDOR_KEY_PREFIXES = ("primer_scheme_vendor_", "primer_scheme_")
 _TARGET_ORGANISM_KEY_PREFIXES = (
     "primer_scheme_target_organism_",
-    "primer_scheme_target_",
     "primer_scheme_",
 )
 
 
-def parse_contributor_single(v: Any) -> Contributor:
+def parse_contributor_single(v: Any) -> PrimerSchemeContributor:
     """Parses a single contributor from various input formats.
 
     Args:
-        v (Any): The input value to parse. Can be a Contributor object, a dictionary,
+        v (Any): The input value to parse. Can be a PrimerSchemeContributor object, a dictionary,
             or a string. If a string, it can be a JSON object, a comma-separated
             key-value string (e.g., "name=John,email=john@example.com" or the full
             "primer_scheme_contributor_name=John,primer_scheme_contributor_email=john@example.com"),
             or simply the name of the contributor.
 
     Returns:
-        Contributor: A Contributor object parsed from the input.
+        PrimerSchemeContributor: A PrimerSchemeContributor object parsed from the input.
 
     Raises:
-        ValueError: If the input cannot be parsed into a Contributor.
+        ValueError: If the input cannot be parsed into a PrimerSchemeContributor.
     """
-    if isinstance(v, Contributor):
+    if isinstance(v, PrimerSchemeContributor):
         return v
     if isinstance(v, dict):
-        return Contributor(
-            **_expand_short_keys(v, Contributor, _CONTRIBUTOR_KEY_PREFIXES)
+        return PrimerSchemeContributor(
+            **_expand_short_keys(v, PrimerSchemeContributor, _CONTRIBUTOR_KEY_PREFIXES)
         )
     if isinstance(v, str):
         # Try JSON first
         try:
             data = json.loads(v)
             if isinstance(data, dict):
-                return Contributor(
-                    **_expand_short_keys(data, Contributor, _CONTRIBUTOR_KEY_PREFIXES)
+                return PrimerSchemeContributor(
+                    **_expand_short_keys(
+                        data, PrimerSchemeContributor, _CONTRIBUTOR_KEY_PREFIXES
+                    )
                 )
         except json.JSONDecodeError:
             pass
@@ -207,33 +208,39 @@ def parse_contributor_single(v: Any) -> Contributor:
                 if "=" in part:
                     key, val = part.split("=", 1)
                     parts[key.strip()] = val.strip()
-            return Contributor(
-                **_expand_short_keys(parts, Contributor, _CONTRIBUTOR_KEY_PREFIXES)
+            return PrimerSchemeContributor(
+                **_expand_short_keys(
+                    parts, PrimerSchemeContributor, _CONTRIBUTOR_KEY_PREFIXES
+                )
             )
 
         # Fallback to name only
-        return Contributor(primer_scheme_contributor_name=v)
+        return PrimerSchemeContributor(primer_scheme_contributor_name=v)
     raise ValueError(f"Cannot parse contributor: {v}")
 
 
-def parse_contributors_pydantic(v: Any) -> List[Contributor]:
+def parse_contributors_pydantic(v: Any) -> List[PrimerSchemeContributor]:
     if isinstance(v, list):
         return [parse_contributor_single(x) for x in v]
     return v
 
 
-def parse_vendor_single(v: Any) -> Vendor:
+def parse_vendor_single(v: Any) -> PrimerSchemeVendor:
     """Parses a single vendor from various input formats."""
-    if isinstance(v, Vendor):
+    if isinstance(v, PrimerSchemeVendor):
         return v
     if isinstance(v, dict):
-        return Vendor(**_expand_short_keys(v, Vendor, _VENDOR_KEY_PREFIXES))
+        return PrimerSchemeVendor(
+            **_expand_short_keys(v, PrimerSchemeVendor, _VENDOR_KEY_PREFIXES)
+        )
     if isinstance(v, str):
         # Try JSON first
         try:
             data = json.loads(v)
             if isinstance(data, dict):
-                return Vendor(**_expand_short_keys(data, Vendor, _VENDOR_KEY_PREFIXES))
+                return PrimerSchemeVendor(
+                    **_expand_short_keys(data, PrimerSchemeVendor, _VENDOR_KEY_PREFIXES)
+                )
         except json.JSONDecodeError:
             pass
         # Key-value parsing
@@ -243,10 +250,12 @@ def parse_vendor_single(v: Any) -> Vendor:
                 if "=" in part:
                     key, val = part.split("=", 1)
                     parts[key.strip()] = val.strip()
-            return Vendor(**_expand_short_keys(parts, Vendor, _VENDOR_KEY_PREFIXES))
+            return PrimerSchemeVendor(
+                **_expand_short_keys(parts, PrimerSchemeVendor, _VENDOR_KEY_PREFIXES)
+            )
 
         # Fallback to organisation_name only
-        return Vendor(primer_scheme_vendor_name=v)
+        return PrimerSchemeVendor(primer_scheme_vendor_name=v)
     raise ValueError(f"Cannot parse vendor: {v}")
 
 
@@ -278,9 +287,12 @@ def create_status_badge(primer_scheme: PrimerScheme) -> str:
     Create a badge for the README.md file
     """
     match primer_scheme.primer_scheme_development_status:
-        case SchemeStatus.VALIDATED:
+        case PrimerSchemeDevelopmentStatus.VALIDATED:
             color = "green"
-        case SchemeStatus.WITHDRAWN | SchemeStatus.DEPRECATED:
+        case (
+            PrimerSchemeDevelopmentStatus.WITHDRAWN
+            | PrimerSchemeDevelopmentStatus.DEPRECATED
+        ):
             color = "red"
         case _:
             color = "blue"
@@ -378,39 +390,41 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
             readme.write(footer)
 
 
-def parse_algorithm(v: Any) -> Optional[Algorithm]:
+def parse_algorithm(v: Any) -> Optional[PrimerSchemeGenerator]:
     if v is None:
         return None
-    if isinstance(v, Algorithm):
+    if isinstance(v, PrimerSchemeGenerator):
         return v
     if isinstance(v, dict):
-        return Algorithm(**v)
+        return PrimerSchemeGenerator(**v)
     if isinstance(v, str):
         if ":" in v:
             name, version = v.split(":", 1)
-            return Algorithm(
+            return PrimerSchemeGenerator(
                 primer_scheme_generator_name=name,
                 primer_scheme_generator_version=version,
             )
-        return Algorithm(primer_scheme_generator_name=v)
+        return PrimerSchemeGenerator(primer_scheme_generator_name=v)
     raise ValueError(f"Cannot parse algorithm: {v}")
 
 
-def parse_target_organism_single(v: Any) -> TargetOrganism:
-    if isinstance(v, TargetOrganism):
+def parse_target_organism_single(v: Any) -> PrimerSchemeTargetOrganism:
+    if isinstance(v, PrimerSchemeTargetOrganism):
         return v
     if isinstance(v, dict):
-        return TargetOrganism(
-            **_expand_short_keys(v, TargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES)
+        return PrimerSchemeTargetOrganism(
+            **_expand_short_keys(
+                v, PrimerSchemeTargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES
+            )
         )
     if isinstance(v, str):
         # Try JSON first
         try:
             data = json.loads(v)
             if isinstance(data, dict):
-                return TargetOrganism(
+                return PrimerSchemeTargetOrganism(
                     **_expand_short_keys(
-                        data, TargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES
+                        data, PrimerSchemeTargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES
                     )
                 )
         except json.JSONDecodeError:
@@ -423,45 +437,47 @@ def parse_target_organism_single(v: Any) -> TargetOrganism:
                 if "=" in part:
                     key, val = part.split("=", 1)
                     parts[key.strip()] = val.strip()
-            return TargetOrganism(
+            return PrimerSchemeTargetOrganism(
                 **_expand_short_keys(
-                    parts, TargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES
+                    parts, PrimerSchemeTargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES
                 )
             )
 
         # If it looks like an int, assume it's a tax id
         if v.isdigit():
-            return TargetOrganism(primer_scheme_target_organism_ncbi_taxon_id=v)
+            return PrimerSchemeTargetOrganism(
+                primer_scheme_target_organism_ncbi_taxon_id=v
+            )
 
         # Otherwise assume common name
-        return TargetOrganism(primer_scheme_target_organism_name=v)
+        return PrimerSchemeTargetOrganism(primer_scheme_target_organism_name=v)
     raise ValueError(f"Cannot parse target organism: {v}")
 
 
-def parse_target_organisms_pydantic(v: Any) -> List[TargetOrganism]:
+def parse_target_organisms_pydantic(v: Any) -> List[PrimerSchemeTargetOrganism]:
     if isinstance(v, list):
         return [parse_target_organism_single(x) for x in v]
-    if isinstance(v, (str, dict, TargetOrganism)):
+    if isinstance(v, (str, dict, PrimerSchemeTargetOrganism)):
         return [parse_target_organism_single(v)]
     return v
 
 
-def parse_vendors_pydantic(v: Any) -> Optional[List[Vendor]]:
+def parse_vendors_pydantic(v: Any) -> Optional[List[PrimerSchemeVendor]]:
     if v is None:
         return None
     if isinstance(v, list):
         return [parse_vendor_single(x) for x in v]
-    if isinstance(v, (str, dict, Vendor)):
+    if isinstance(v, (str, dict, PrimerSchemeVendor)):
         return [parse_vendor_single(v)]
     return v
 
 
 def _normalize_license(v: Any) -> Any:
-    """Case-insensitive match against valid SPDX values; pass through SchemeLicense instances."""
-    if isinstance(v, SchemeLicense):
+    """Case-insensitive match against valid SPDX values; pass through PrimerSchemeLicense instances."""
+    if isinstance(v, PrimerSchemeLicense):
         return v.value
     if isinstance(v, str):
-        for member in SchemeLicense:
+        for member in PrimerSchemeLicense:
             if v.lower() == member.value.lower():
                 return member.value
     return v
@@ -486,44 +502,44 @@ class CLIPrimerScheme(PrimerScheme):
     schema_version: Annotated[str, Parameter(parse=False)] = SCHEMA_VERSION
     primer_scheme_identifier: Annotated[Optional[str], Parameter(parse=False)] = None
     primer_scheme_contributor: Annotated[  # type: ignore
-        List[Contributor],
+        List[PrimerSchemeContributor],
         BeforeValidator(parse_contributors_pydantic),
         Parameter(
             help="Individuals, organisations, or institutions that have contributed to the development. e.g. `name=Alice Smith,email=alice@example.org,orcid=0000-0001-2345-6789`"
         ),
     ]
     primer_scheme_target_organism: Annotated[  # type: ignore
-        List[TargetOrganism],
+        List[PrimerSchemeTargetOrganism],
         BeforeValidator(parse_target_organisms_pydantic),
         Parameter(
             help="The organism(s) targeted by this primer scheme. e.g. `name=SARS-CoV-2,ncbi_taxon_id=2697049`"
         ),
     ]
     primer_scheme_vendor: Annotated[
-        Optional[List[Vendor]],
+        Optional[List[PrimerSchemeVendor]],
         BeforeValidator(parse_vendors_pydantic),
         Parameter(
             help="Vendors where one can purchase the primers or a kit containing them. e.g. `name=IDT,kit_name=10011442,url=https://example.com`"
         ),
     ] = None
-    primer_scheme_generator: Annotated[Optional[Algorithm], Parameter(parse=False)] = (
-        None
-    )
+    primer_scheme_generator: Annotated[
+        Optional[PrimerSchemeGenerator], Parameter(parse=False)
+    ] = None
     # Don't expose the checksums to cli
-    checksums: Annotated[Checksums | None, Parameter(parse=False)] = None
+    checksums: Annotated[PrimerSchemeChecksums | None, Parameter(parse=False)] = None
     # Override with Literal so Cyclopts displays proper SPDX strings instead of mangled enum names
     primer_scheme_license: Annotated[  # type: ignore
         Optional[_LicenseLiteral],
         BeforeValidator(_normalize_license),
-    ] = SchemeLicense.CC_BY_SA_4FULL_STOP0.value
+    ] = PrimerSchemeLicense.CC_BY_SA_4FULL_STOP0.value
     # show_default=False: cyclopts' Enum default-rendering assumes a non-None
     # member (`default.name`), which crashes --help for an Optional[Enum]
     # whose default is None. Neither field has a meaningful default to show.
     primer_scheme_application: Annotated[
-        Optional[SchemeApplication], Parameter(show_default=False)
+        Optional[PrimerSchemeApplication], Parameter(show_default=False)
     ] = None
     primer_scheme_scope: Annotated[
-        Optional[SchemeScope], Parameter(show_default=False)
+        Optional[PrimerSchemeScope], Parameter(show_default=False)
     ] = None
     primer_scheme_creation_date: Annotated[
         date,
@@ -542,7 +558,7 @@ class CLIPrimerScheme(PrimerScheme):
                 and not to.primer_scheme_target_organism_ncbi_taxon_id
             ):
                 raise ValueError(
-                    "TargetOrganism must have at least one of "
+                    "PrimerSchemeTargetOrganism must have at least one of "
                     "'primer_scheme_target_organism_name' or 'primer_scheme_target_organism_ncbi_taxon_id'"
                 )
         return v
@@ -612,7 +628,7 @@ def create(
     if algorithm:
         cli_ps.primer_scheme_generator = parse_algorithm(algorithm)
         logger.debug(
-            f"Parsed algorithm '{algorithm}' -> Algorithm({cli_ps.primer_scheme_generator})"
+            f"Parsed algorithm '{algorithm}' -> PrimerSchemeGenerator({cli_ps.primer_scheme_generator})"
         )
 
     # Convert to base PrimerScheme to ensure strict adherence to the schema
@@ -662,7 +678,7 @@ def create(
         )
 
         # Generate checksums
-        ps.checksums = Checksums(
+        ps.checksums = PrimerSchemeChecksums(
             primer_scheme_sha256=sha256_checksum(tmp_version_level / PRIMER_FILE_NAME),
             reference_sequence_sha256=sha256_checksum(
                 tmp_version_level / REFERENCE_FILE_NAME
@@ -689,7 +705,7 @@ def add_contributor(
         Parameter(validator=validators.Path(exists=True, file_okay=True)),
     ],
     contributor: Annotated[
-        Contributor,
+        PrimerSchemeContributor,
         Parameter(name="*", converter=parse_contributor_single),
     ],
     idx: Annotated[None | int, Parameter(validator=validators.Number(gte=0))] = None,
@@ -761,7 +777,7 @@ def update_contributor(
     ],
     idx: Annotated[int, Parameter(validator=validators.Number(gte=0))],
     contributor: Annotated[
-        Contributor,
+        PrimerSchemeContributor,
         Parameter(name="*", converter=parse_contributor_single),
     ],
 ):
@@ -792,7 +808,7 @@ def add_vendor(
         Parameter(validator=validators.Path(exists=True, file_okay=True)),
     ],
     vendor: Annotated[
-        Vendor,
+        PrimerSchemeVendor,
         Parameter(name="*", converter=parse_vendor_single),
     ],
     idx: Annotated[None | int, Parameter(validator=validators.Number(gte=0))] = None,
@@ -858,7 +874,7 @@ def update_vendor(
     ],
     idx: Annotated[int, Parameter(validator=validators.Number(gte=0))],
     vendor: Annotated[
-        Vendor,
+        PrimerSchemeVendor,
         Parameter(name="*", converter=parse_vendor_single),
     ],
 ):
@@ -911,7 +927,7 @@ def update_status(
         pathlib.Path,
         Parameter(validator=validators.Path(exists=True, file_okay=True)),
     ],
-    status: SchemeStatus,
+    status: PrimerSchemeDevelopmentStatus,
 ):
     """Update the scheme status."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
@@ -999,12 +1015,14 @@ def add_target_organism(
         pathlib.Path,
         Parameter(validator=validators.Path(exists=True, file_okay=True)),
     ],
-    target_organism: Annotated[Optional[TargetOrganism], Parameter(name="*")] = None,
+    target_organism: Annotated[
+        Optional[PrimerSchemeTargetOrganism], Parameter(name="*")
+    ] = None,
     idx: Annotated[None | int, Parameter(validator=validators.Number(gte=0))] = None,
 ):
     """Adds a target organism at a specific index."""
     if target_organism is None:
-        target_organism = TargetOrganism()
+        target_organism = PrimerSchemeTargetOrganism()
 
     ps = PrimerScheme.model_validate_json(info_path.read_text())
     scheme_label = (
@@ -1034,7 +1052,7 @@ def update_algorithm(
         pathlib.Path,
         Parameter(validator=validators.Path(exists=True, file_okay=True)),
     ],
-    algorithm: Algorithm,
+    algorithm: PrimerSchemeGenerator,
 ):
     """Update the algorithm."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
@@ -1231,7 +1249,7 @@ def _rebuild_one(
     logger.debug("Validating primer.bed against reference.fasta")
     validate_ref_and_bed(bls, str((info_path.parent / REFERENCE_FILE_NAME).absolute()))
     logger.debug("Computing sha256 checksums")
-    ps.checksums = Checksums(
+    ps.checksums = PrimerSchemeChecksums(
         primer_scheme_sha256=sha256_checksum(info_path.parent / PRIMER_FILE_NAME),
         reference_sequence_sha256=sha256_checksum(
             info_path.parent / REFERENCE_FILE_NAME

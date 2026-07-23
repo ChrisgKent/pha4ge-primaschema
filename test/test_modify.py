@@ -12,9 +12,9 @@ from primaschema.cli import (
     update_date_created,
 )
 from primaschema.schema.info import (
-    Contributor,
-    TargetOrganism,
-    Vendor,
+    PrimerSchemeContributor,
+    PrimerSchemeTargetOrganism,
+    PrimerSchemeVendor,
 )
 from primaschema.schema.primer_scheme import PrimerScheme
 
@@ -34,7 +34,9 @@ def test_add_contributor_persists(tmp_path):
     """add_contributor appends a new contributor to info.json and persists it."""
     info_path = _copy_scheme(tmp_path, FIXTURE) / "info.json"
     before = PrimerScheme.model_validate_json(info_path.read_text())
-    add_contributor(info_path, Contributor(primer_scheme_contributor_name="Alice"))
+    add_contributor(
+        info_path, PrimerSchemeContributor(primer_scheme_contributor_name="Alice")
+    )
     after = PrimerScheme.model_validate_json(info_path.read_text())
     assert (
         len(after.primer_scheme_contributor)
@@ -59,7 +61,7 @@ def test_add_vendor_persists(tmp_path):
     """add_vendor appends a new vendor to info.json and persists it."""
     info_path = _copy_scheme(tmp_path, FIXTURE) / "info.json"
     before = PrimerScheme.model_validate_json(info_path.read_text())
-    add_vendor(info_path, Vendor(primer_scheme_vendor_name="NewCo"))
+    add_vendor(info_path, PrimerSchemeVendor(primer_scheme_vendor_name="NewCo"))
     after = PrimerScheme.model_validate_json(info_path.read_text())
     assert len(after.primer_scheme_vendor) == len(before.primer_scheme_vendor) + 1
     assert after.primer_scheme_vendor[-1].primer_scheme_vendor_name == "NewCo"
@@ -70,7 +72,8 @@ def test_add_target_organism_persists(tmp_path):
     info_path = _copy_scheme(tmp_path, FIXTURE) / "info.json"
     before = PrimerScheme.model_validate_json(info_path.read_text())
     add_target_organism(
-        info_path, TargetOrganism(primer_scheme_target_organism_name="Test virus")
+        info_path,
+        PrimerSchemeTargetOrganism(primer_scheme_target_organism_name="Test virus"),
     )
     after = PrimerScheme.model_validate_json(info_path.read_text())
     assert (

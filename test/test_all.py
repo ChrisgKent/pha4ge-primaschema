@@ -221,25 +221,31 @@ def test_rebuild_syncs_metadata_from_path(tmp_path: Path):
 
 
 def _minimal_scheme(**kwargs) -> PrimerScheme:
-    from primaschema.schema.info import Contributor, SchemeStatus, TargetOrganism
+    from primaschema.schema.info import (
+        PrimerSchemeContributor,
+        PrimerSchemeDevelopmentStatus,
+        PrimerSchemeTargetOrganism,
+    )
 
     defaults = dict(
         schema_version="1.0.0",
         primer_scheme_name="test-scheme",
         amplicon_size=400,
         primer_scheme_version="v1.0.0",
-        primer_scheme_contributor=[Contributor(primer_scheme_contributor_name="Alice")],
-        primer_scheme_target_organism=[
-            TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+        primer_scheme_contributor=[
+            PrimerSchemeContributor(primer_scheme_contributor_name="Alice")
         ],
-        primer_scheme_development_status=SchemeStatus.DRAFT,
+        primer_scheme_target_organism=[
+            PrimerSchemeTargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+        ],
+        primer_scheme_development_status=PrimerSchemeDevelopmentStatus.DRAFT,
     )
     defaults.update(kwargs)
     return PrimerScheme(**defaults)
 
 
 # ---------------------------------------------------------------------------
-# Unit tests — SchemeLicense
+# Unit tests — PrimerSchemeLicense
 # ---------------------------------------------------------------------------
 
 
@@ -256,18 +262,18 @@ def _minimal_scheme(**kwargs) -> PrimerScheme:
     ],
 )
 def test_scheme_license_all_values_accessible(spdx):
-    """Every SPDX license string round-trips through SchemeLicense(value).value."""
-    from primaschema.schema.info import SchemeLicense
+    """Every SPDX license string round-trips through PrimerSchemeLicense(value).value."""
+    from primaschema.schema.info import PrimerSchemeLicense
 
-    assert SchemeLicense(spdx).value == spdx
+    assert PrimerSchemeLicense(spdx).value == spdx
 
 
 def test_license_footers_covers_all_licenses():
-    """LICENSE_FOOTERS has an entry for every SchemeLicense member."""
+    """LICENSE_FOOTERS has an entry for every PrimerSchemeLicense member."""
     from primaschema.license_footers import LICENSE_FOOTERS
-    from primaschema.schema.info import SchemeLicense
+    from primaschema.schema.info import PrimerSchemeLicense
 
-    for member in SchemeLicense:
+    for member in PrimerSchemeLicense:
         assert member in LICENSE_FOOTERS, f"Missing footer for {member}"
 
 
@@ -286,9 +292,9 @@ def test_license_footers_covers_all_licenses():
 def test_license_footer_contains_url(license, url_fragment):
     """Each license footer contains the canonical CC URL for that license."""
     from primaschema.license_footers import LICENSE_FOOTERS
-    from primaschema.schema.info import SchemeLicense
+    from primaschema.schema.info import PrimerSchemeLicense
 
-    assert url_fragment in LICENSE_FOOTERS[SchemeLicense(license)]
+    assert url_fragment in LICENSE_FOOTERS[PrimerSchemeLicense(license)]
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +324,11 @@ def test_cli_scheme_date_created_required():
     from pydantic import ValidationError
 
     from primaschema.cli import CLIPrimerScheme
-    from primaschema.schema.info import Contributor, SchemeStatus, TargetOrganism
+    from primaschema.schema.info import (
+        PrimerSchemeContributor,
+        PrimerSchemeDevelopmentStatus,
+        PrimerSchemeTargetOrganism,
+    )
 
     with pytest.raises(ValidationError):
         CLIPrimerScheme(
@@ -326,12 +336,14 @@ def test_cli_scheme_date_created_required():
             primer_scheme_name="test",
             amplicon_size=400,
             primer_scheme_version="v1.0.0",
-            primer_scheme_development_status=SchemeStatus.DRAFT,
+            primer_scheme_development_status=PrimerSchemeDevelopmentStatus.DRAFT,
             primer_scheme_contributor=[
-                Contributor(primer_scheme_contributor_name="Alice")
+                PrimerSchemeContributor(primer_scheme_contributor_name="Alice")
             ],
             primer_scheme_target_organism=[
-                TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+                PrimerSchemeTargetOrganism(
+                    primer_scheme_target_organism_name="SARS-CoV-2"
+                )
             ],
         )
 
@@ -339,17 +351,23 @@ def test_cli_scheme_date_created_required():
 def test_cli_scheme_date_added_defaults_to_today():
     """CLIPrimerScheme sets date_added to today when not explicitly provided."""
     from primaschema.cli import CLIPrimerScheme
-    from primaschema.schema.info import Contributor, SchemeStatus, TargetOrganism
+    from primaschema.schema.info import (
+        PrimerSchemeContributor,
+        PrimerSchemeDevelopmentStatus,
+        PrimerSchemeTargetOrganism,
+    )
 
     ps = CLIPrimerScheme(
         schema_version="1.0.0",
         primer_scheme_name="test",
         amplicon_size=400,
         primer_scheme_version="v1.0.0",
-        primer_scheme_development_status=SchemeStatus.DRAFT,
-        primer_scheme_contributor=[Contributor(primer_scheme_contributor_name="Alice")],
+        primer_scheme_development_status=PrimerSchemeDevelopmentStatus.DRAFT,
+        primer_scheme_contributor=[
+            PrimerSchemeContributor(primer_scheme_contributor_name="Alice")
+        ],
         primer_scheme_target_organism=[
-            TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+            PrimerSchemeTargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
         ],
         primer_scheme_creation_date=date(2024, 1, 1),
     )
@@ -376,9 +394,9 @@ def test_cli_scheme_date_added_defaults_to_today():
 def test_readme_license_footer_written(tmp_path, license, url_fragment):
     """generate_readme writes the correct license footer for each CC license."""
     from primaschema.cli import generate_readme
-    from primaschema.schema.info import SchemeLicense
+    from primaschema.schema.info import PrimerSchemeLicense
 
-    ps = _minimal_scheme(primer_scheme_license=SchemeLicense(license))
+    ps = _minimal_scheme(primer_scheme_license=PrimerSchemeLicense(license))
     generate_readme(tmp_path, ps)
     readme = (tmp_path / "README.md").read_text()
     assert (
@@ -512,15 +530,15 @@ def test_primer_scheme_application_and_scope_round_trip_via_json():
     ValidationError (needs_python_object), because pydantic's `isinstance`
     check for arbitrary types can't run against a plain JSON string.
     """
-    from primaschema.schema.info import SchemeApplication, SchemeScope
+    from primaschema.schema.info import PrimerSchemeApplication, PrimerSchemeScope
 
     ps = _minimal_scheme(
-        primer_scheme_application=SchemeApplication.WASTEWATER,
-        primer_scheme_scope=SchemeScope.QPCR,
+        primer_scheme_application=PrimerSchemeApplication.WASTEWATER,
+        primer_scheme_scope=PrimerSchemeScope.QPCR,
     )
     restored = PrimerScheme.model_validate_json(ps.model_dump_json())
-    assert restored.primer_scheme_application == SchemeApplication.WASTEWATER
-    assert restored.primer_scheme_scope == SchemeScope.QPCR
+    assert restored.primer_scheme_application == PrimerSchemeApplication.WASTEWATER
+    assert restored.primer_scheme_scope == PrimerSchemeScope.QPCR
 
 
 def test_primer_scheme_application_and_scope_optional():

@@ -52,7 +52,7 @@ classes:
       - primer_scheme_creation_date
       - primer_scheme_submission_date
 
-  Vendor:
+  PrimerSchemeVendor:
     description: "Vendor of the primers described in the amplicon scheme or a kit containing these primers"
     attributes:
       primer_scheme_vendor_name:
@@ -77,7 +77,7 @@ classes:
           - kit_name
           - vendor_kit_name
 
-  Contributor:
+  PrimerSchemeContributor:
     class_uri: IAO:contributor
     description: "Person or organisation who contributed to primer scheme development"
     attributes:
@@ -100,7 +100,7 @@ classes:
         aliases:
           - email
 
-  Algorithm:
+  PrimerSchemeGenerator:
     class_uri: IAO:0000064
     description: "Algorithm used to generate the primer scheme"
     attributes:
@@ -116,7 +116,7 @@ classes:
         aliases:
           - version
 
-  Checksums:
+  PrimerSchemeChecksums:
     description: "SHA256 checksums for scheme files"
     attributes:
       primer_scheme_sha256:
@@ -132,7 +132,7 @@ classes:
         aliases:
           - reference_sha256
 
-  TargetOrganism:
+  PrimerSchemeTargetOrganism:
     class_uri: EDAM:1869
     description: "The organisms targeted by this primer scheme"
     attributes:
@@ -147,9 +147,11 @@ classes:
         description: "The NCBI taxon ID of the taxon or taxa that the primers of the scheme were designed to target."
         aliases:
           - ncbi_tax_id
-      primer_scheme_target_details:
+      primer_scheme_target_organism_details:
         slot_uri: GENEPIO:0102312
         description: "Any additional information about a primer scheme target."
+        aliases:
+          - primer_scheme_target_details
 
 slots:
   schema_version:
@@ -185,14 +187,14 @@ slots:
     multivalued: true
     minimum_cardinality: 1
     inlined_as_list: true
-    range: Contributor
+    range: PrimerSchemeContributor
     aliases:
       - contributors
   primer_scheme_target_organism:
     slot_uri: EDAM:1869
     required: true
     description: The organism against which this primer scheme is targeted.
-    range: TargetOrganism
+    range: PrimerSchemeTargetOrganism
     multivalued: true
     minimum_cardinality: 1
     inlined_as_list: true
@@ -210,7 +212,7 @@ slots:
     description: "Vendors where one can purchase the primers described in the amplicon scheme or a kit containing these primers"
     multivalued: true
     inlined_as_list: true
-    range: Vendor
+    range: PrimerSchemeVendor
     aliases:
       - vendors
   amplicon_size:
@@ -230,26 +232,26 @@ slots:
   primer_scheme_development_status:
     slot_uri: GENEPIO:0100681
     description: "The status of the of the primer scheme in its development cycle."
-    range: SchemeStatus
+    range: PrimerSchemeDevelopmentStatus
     required: true
     aliases:
       - status
       - primer scheme status
   primer_scheme_license:
     slot_uri: GENEPIO:0102306
-    range: SchemeLicense
+    range: PrimerSchemeLicense
     description: "The license under which the primer scheme is distributed"
-    ifabsent: SchemeLicense(CC-BY-SA-4.0)
+    ifabsent: PrimerSchemeLicense(CC-BY-SA-4.0)
     aliases:
       - license
   primer_scheme_application:
     slot_uri: GENEPIO:0102309
     description: "The application the primer scheme was intended for."
-    range: SchemeApplication
+    range: PrimerSchemeApplication
     required: false
   primer_scheme_scope:
     description: "The range of targets the primer scheme is intented for."
-    range: SchemeScope
+    range: PrimerSchemeScope
     required: false
   citation:
     slot_uri: IAO:0000301
@@ -260,7 +262,7 @@ slots:
       - citations
   checksums:
     description: "SHA256 checksums for scheme files"
-    range: Checksums
+    range: PrimerSchemeChecksums
     inlined: true
   primer_scheme_derived_from:
     slot_uri: GENEPIO:0100671
@@ -270,7 +272,7 @@ slots:
       - parental_primer_scheme_name
   primer_scheme_generator:
     description: "The algorithm (if any) used to generate this primer scheme"
-    range: Algorithm
+    range: PrimerSchemeGenerator
     inlined_as_list: true
     aliases:
       - algorithm
@@ -288,7 +290,7 @@ slots:
       - date_added
 
 enums:
-  SchemeStatus:
+  PrimerSchemeDevelopmentStatus:
     description: "Status of this amplicon primer scheme"
     permissible_values:
       DRAFT:
@@ -306,7 +308,7 @@ enums:
       WITHDRAWN:
         description: "A primer scheme that has been removed or retracted so that it is no longer available."
         meaning: GENEPIO:0102326
-  SchemeLicense:
+  PrimerSchemeLicense:
     description: "License under which the primer scheme is distributed"
     permissible_values:
       CC0-1.0:
@@ -316,7 +318,7 @@ enums:
       CC-BY-NC-SA-4.0:
       CC-BY-ND-4.0:
       CC-BY-NC-ND-4.0:
-  SchemeApplication:
+  PrimerSchemeApplication:
     description: "The application the primer scheme was intended for."
     permissible_values:
       CLINICAL:
@@ -325,7 +327,7 @@ enums:
       WASTEWATER:
         description: "An entity used for studying and/or testing wastewater."
         meaning: GENEPIO:0102331
-  SchemeScope:
+  PrimerSchemeScope:
     description: "The range of targets the primer scheme is intented for."
     permissible_values:
       WHOLE-GENOME:

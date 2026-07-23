@@ -2,11 +2,11 @@ import csv
 import io
 
 from primaschema.schema.info import (
-    Algorithm,
-    Checksums,
-    Contributor,
-    TargetOrganism,
-    Vendor,
+    PrimerSchemeGenerator,
+    PrimerSchemeChecksums,
+    PrimerSchemeContributor,
+    PrimerSchemeTargetOrganism,
+    PrimerSchemeVendor,
 )
 from primaschema.schema.primer_scheme import (
     PrimerScheme,
@@ -19,16 +19,16 @@ _DELIMITER = ";"
 # column; multiple items are packed into that column, one value per item,
 # positionally aligned across all of the group's columns.
 _REPEATABLE_CLASS_GROUPS = {
-    "primer_scheme_contributor": Contributor,
-    "primer_scheme_target_organism": TargetOrganism,
-    "primer_scheme_vendor": Vendor,
+    "primer_scheme_contributor": PrimerSchemeContributor,
+    "primer_scheme_target_organism": PrimerSchemeTargetOrganism,
+    "primer_scheme_vendor": PrimerSchemeVendor,
 }
 
 # Singular groups: at most one object, so its attributes promote directly
 # to flat columns with no packing.
 _SINGULAR_CLASS_GROUPS = {
-    "primer_scheme_generator": Algorithm,
-    "checksums": Checksums,
+    "primer_scheme_generator": PrimerSchemeGenerator,
+    "checksums": PrimerSchemeChecksums,
 }
 
 # Repeatable scalar fields: a plain list of strings/enum values, packed into
@@ -96,10 +96,10 @@ del _field_name
 def flatten_scheme(ps: PrimerScheme) -> dict[str, str]:
     """Flatten a PrimerScheme into a single flat row of str -> str.
 
-    Repeatable groups (Contributor/TargetOrganism/Vendor lists, and plain
+    Repeatable groups (PrimerSchemeContributor/PrimerSchemeTargetOrganism/PrimerSchemeVendor lists, and plain
     repeatable scalar fields) are packed into semicolon-delimited cells,
     positionally aligned across a group's columns. Singular groups
-    (Algorithm/Checksums) and plain scalar fields map straight to one
+    (PrimerSchemeGenerator/PrimerSchemeChecksums) and plain scalar fields map straight to one
     column each.
     """
     data = ps.model_dump(mode="json")

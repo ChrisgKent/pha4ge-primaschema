@@ -6,12 +6,12 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from primaschema import METADATA_FILE_NAME, PRIMER_FILE_NAME, REFERENCE_FILE_NAME
 from primaschema.schema.info import (
-    Checksums,
+    PrimerSchemeChecksums,
     ConfiguredBaseModel,
-    Contributor,
-    SchemeLicense,
-    SchemeStatus,
-    TargetOrganism,
+    PrimerSchemeContributor,
+    PrimerSchemeLicense,
+    PrimerSchemeDevelopmentStatus,
+    PrimerSchemeTargetOrganism,
 )
 from primaschema.schema.primer_scheme import PrimerScheme
 
@@ -47,19 +47,19 @@ class IndexPrimerScheme(BaseModel):
         description="""The version of the primer scheme.""",
         pattern=r"^v\d+\.\d+\.\d+(-[a-z0-9]+)?$",
     )
-    primer_scheme_contributor: list[Contributor] = Field(
+    primer_scheme_contributor: list[PrimerSchemeContributor] = Field(
         default=...,
         description="""Individuals, organisations, or institutions that have contributed to the development""",
     )
-    primer_scheme_target_organism: list[TargetOrganism] = Field(
+    primer_scheme_target_organism: list[PrimerSchemeTargetOrganism] = Field(
         default=...,
         description="""The organism against which this primer scheme is targeted. Lowercase, e.g. sars-cov-2""",
     )
-    primer_scheme_license: SchemeLicense = Field(
-        default=SchemeLicense.CC_BY_SA_4FULL_STOP0,
+    primer_scheme_license: PrimerSchemeLicense = Field(
+        default=PrimerSchemeLicense.CC_BY_SA_4FULL_STOP0,
         description="""The license under which the primer scheme is distributed""",
     )
-    primer_scheme_development_status: SchemeStatus = Field(
+    primer_scheme_development_status: PrimerSchemeDevelopmentStatus = Field(
         default=...,
         description="""The status of the of the primer scheme in its development cycle.""",
     )
@@ -67,7 +67,7 @@ class IndexPrimerScheme(BaseModel):
         default=None,
         description="""The original primer scheme from which the present scheme was derived.""",
     )
-    checksums: Optional[Checksums] = Field(
+    checksums: Optional[PrimerSchemeChecksums] = Field(
         default=None,
         description="""SHA256 checksums for scheme files""",
     )
@@ -143,7 +143,7 @@ class IndexPrimerScheme(BaseModel):
             primer_scheme_contributor=scheme.primer_scheme_contributor,
             primer_scheme_target_organism=scheme.primer_scheme_target_organism,
             primer_scheme_license=scheme.primer_scheme_license
-            or SchemeLicense.CC_BY_SA_4FULL_STOP0,
+            or PrimerSchemeLicense.CC_BY_SA_4FULL_STOP0,
             primer_scheme_development_status=scheme.primer_scheme_development_status,
             primer_scheme_derived_from=scheme.primer_scheme_derived_from,
             checksums=scheme.checksums,
