@@ -12,7 +12,13 @@ from cyclopts import App, Parameter, validators
 from cyclopts.utils import default_name_transform
 from primalbedtools.bedfiles import BedLineParser, sort_bedlines
 from primalbedtools.validate import validate_ref_and_bed
-from pydantic import BeforeValidator, Field, field_validator, model_validator
+from pydantic import (
+    BeforeValidator,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from rich.console import Console
 from rich.traceback import install as install_rich_traceback
 
@@ -25,6 +31,7 @@ from primaschema import (
 )
 from primaschema.get_scheme import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
+    DownloadError,
     SanitisationMode,
     download_schemes,
     load_index,
@@ -96,6 +103,13 @@ app = App(
 )
 
 
+# Errors we raise ourselves for expected, user-facing problems (bad input,
+# failed validation, a mismatched checksum/identifier, a missing file) —
+# as opposed to AttributeError/TypeError/KeyError/etc., which indicate an
+# actual bug and should always show a full traceback so it can be diagnosed.
+_EXPECTED_EXCEPTIONS = (ValueError, DownloadError, FileNotFoundError, ValidationError)
+
+
 @app.meta.default
 def cli_launcher(
     *tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)],
@@ -105,7 +119,13 @@ def cli_launcher(
     ] = LogLevel.INFO,
 ):
     configure_logging(log_level=log_level)
-    app(tokens)
+    try:
+        app(tokens)
+    except _EXPECTED_EXCEPTIONS as exc:
+        if log_level == LogLevel.DEBUG:
+            raise
+        error_console.print(f"[bold red]Error:[/bold red] {exc}")
+        raise SystemExit(1) from None
 
 
 modify_app = App(name="modify", help="Modify fields of an existing primer scheme")
