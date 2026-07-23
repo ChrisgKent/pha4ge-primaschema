@@ -45,6 +45,38 @@ def test_pack_unpack_value_with_embedded_delimiter():
     assert _unpack(packed) == ["Ac;me Inc", "Bob"]
 
 
+def test_pack_unpack_value_with_embedded_newline():
+    """A value containing a literal newline round-trips correctly, not silently truncated.
+
+    Regression test: _pack previously used lineterminator="" to avoid a
+    trailing terminator, which also disabled csv.writer's quoting of
+    embedded '\\n'/'\\r' (that quoting is keyed off the dialect's
+    lineterminator characters). An unquoted embedded newline meant _unpack's
+    next(csv.reader(...)) only read the first physical line, silently
+    dropping everything after the newline.
+    """
+    packed = _pack(["Alice", "Bob\nX", "Carol"])
+    assert packed == 'Alice;"Bob\nX";Carol'
+    assert _unpack(packed) == ["Alice", "Bob\nX", "Carol"]
+
+
+def test_pack_unpack_single_item_with_embedded_newline():
+    """The single-item packing path also correctly quotes an embedded newline."""
+    packed = _pack(["Multi-line\nnote"])
+    assert _unpack(packed) == ["Multi-line\nnote"]
+
+
+def test_pack_unpack_value_with_embedded_carriage_return():
+    """A value containing a literal carriage return round-trips instead of crashing.
+
+    Regression test: previously raised an unhandled csv.Error ("new-line
+    character seen in unquoted field"), which is not a ValueError and so
+    bypassed the CLI's clean-error-message handling entirely.
+    """
+    packed = _pack(["Old Mac\rDonald Ltd", "Bob"])
+    assert _unpack(packed) == ["Old Mac\rDonald Ltd", "Bob"]
+
+
 # --- flatten_scheme / unflatten_scheme round trip ---
 
 
@@ -88,6 +120,16 @@ def test_flatten_unflatten_round_trip():
     row = flatten_scheme(ps)
     restored = unflatten_scheme(row)
     assert restored.model_dump() == ps.model_dump()
+
+
+def test_flatten_unflatten_round_trip_with_embedded_newline_in_free_text():
+    """A repeatable scalar field with an embedded newline round-trips without data loss."""
+    ps = _sample_scheme(
+        primer_scheme_details=["Paper A", "Multi-line\nnote", "Paper C"],
+    )
+    row = flatten_scheme(ps)
+    restored = unflatten_scheme(row)
+    assert restored.primer_scheme_details == ["Paper A", "Multi-line\nnote", "Paper C"]
 
 
 def test_flatten_unflatten_round_trip_single_item_groups():
