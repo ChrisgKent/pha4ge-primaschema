@@ -22,7 +22,11 @@ from primaschema import (
 )
 from primaschema.schema.index import IndexPrimerScheme, PrimerSchemeIndex
 from primaschema.schema.primer_scheme import PrimerScheme
-from primaschema.util import serialize_fasta_records, serialize_primer_scheme_json
+from primaschema.util import (
+    ensure_path_within,
+    serialize_fasta_records,
+    serialize_primer_scheme_json,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -450,6 +454,10 @@ def _download_scheme_entry(
         / str(scheme.amplicon_size)
         / scheme.primer_scheme_version
     )
+    # Defense-in-depth: name/version are already pattern-constrained on
+    # IndexPrimerScheme, but this confirms the resolved path actually stays
+    # under `output` regardless of what produced the index entry.
+    output_dir = ensure_path_within(output, output_dir)
     if check_output_exists and output_dir.exists():
         msg = f"Output directory already exists: {output_dir}"
         if strict:
@@ -466,6 +474,7 @@ def _download_scheme_entry(
                 / str(scheme.amplicon_size)
                 / scheme.primer_scheme_version
             )
+            tmp_scheme_dir = ensure_path_within(tmp_dir_path, tmp_scheme_dir)
             tmp_scheme_dir.mkdir(parents=True, exist_ok=True)
 
             info_scheme, info_bytes = _get_and_validate_info_json(
@@ -569,6 +578,7 @@ def download_schemes(
             / str(scheme.amplicon_size)
             / scheme.primer_scheme_version
         )
+        output_dir = ensure_path_within(output, output_dir)
         if output_dir.exists():
             msg = f"Output directory already exists: {output_dir}"
             if strict:
@@ -623,6 +633,7 @@ def download_schemes(
                 / str(scheme.amplicon_size)
                 / scheme.primer_scheme_version
             )
+            dest_dir = ensure_path_within(output, dest_dir)
             dest_dir.mkdir(parents=True, exist_ok=True)
             for filename in (METADATA_FILE_NAME, PRIMER_FILE_NAME, REFERENCE_FILE_NAME):
                 shutil.copy2(source_dir / filename, dest_dir / filename)

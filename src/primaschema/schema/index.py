@@ -1,7 +1,8 @@
+import re
 from datetime import date
 from typing import Any, Generator, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from primaschema import METADATA_FILE_NAME, PRIMER_FILE_NAME, REFERENCE_FILE_NAME
 from primaschema.schema.info import (
@@ -14,13 +15,24 @@ from primaschema.schema.info import (
 )
 from primaschema.schema.primer_scheme import PrimerScheme
 
+# Mirrors PrimerScheme's own pattern_primer_scheme_name validator
+# (src/primaschema/schema/info.py) - implemented as a field_validator rather
+# than Field(pattern=...) because pydantic-core's native pattern matching
+# compiles to Rust regex, which doesn't support the negative lookahead this
+# pattern needs.
+_PRIMER_SCHEME_NAME_PATTERN = re.compile(r"^(?!\.{1,2}$)[\da-z0-9_.-]+$")
+
 
 class IndexPrimerScheme(BaseModel):
     """
     A subset of PrimerScheme for the index, with additional fields.
     """
 
-    # Taken from PrimerScheme
+    # Taken from PrimerScheme. name/version carry the same patterns as
+    # PrimerScheme's own fields (not inherited - this is a separate model) so
+    # a compromised/malicious index can't smuggle a path-traversal payload
+    # (e.g. "..", or a "/"-containing value) through into the name/version
+    # used to build local filesystem paths in get_scheme.py.
     primer_scheme_name: str = Field(
         default=...,
         description="""The name of the primer scheme used in an assay.""",
@@ -33,6 +45,7 @@ class IndexPrimerScheme(BaseModel):
     primer_scheme_version: str = Field(
         default=...,
         description="""The version of the primer scheme.""",
+        pattern=r"^v\d+\.\d+\.\d+(-[a-z0-9]+)?$",
     )
     primer_scheme_contributor: list[Contributor] = Field(
         default=...,
@@ -79,6 +92,13 @@ class IndexPrimerScheme(BaseModel):
         default=None,
         description="""URL to the info.json file""",
     )
+
+    @field_validator("primer_scheme_name")
+    @classmethod
+    def _validate_primer_scheme_name(cls, v: str) -> str:
+        if not _PRIMER_SCHEME_NAME_PATTERN.match(v):
+            raise ValueError(f"Invalid primer_scheme_name format: {v}")
+        return v
 
     # New fields
     @property

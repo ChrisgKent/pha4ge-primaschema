@@ -61,6 +61,7 @@ from primaschema.schema.info import (
 from primaschema.schema.primer_scheme import PrimerScheme
 from primaschema.setup_logging import LogLevel, configure_logging
 from primaschema.util import (
+    ensure_path_within,
     find_all_info_json,
     read_fasta_records,
     serialize_primer_scheme_json,
@@ -630,6 +631,10 @@ def create(
         / str(ps.amplicon_size)
         / ps.primer_scheme_version
     )
+    # Defense-in-depth: name/version are pattern-constrained, but this
+    # confirms the actual resolved path stays under primer_schemes_path
+    # regardless of what produced it.
+    output_dir = ensure_path_within(primer_schemes_path, output_dir)
     if output_dir.exists():
         raise ValueError(f"Output directory already exists: {output_dir}")
 
