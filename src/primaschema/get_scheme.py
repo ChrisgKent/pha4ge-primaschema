@@ -314,6 +314,42 @@ def _get_and_validate_reference_fasta(
     return records, fasta_bytes
 
 
+def _decompress_gzip_bounded(raw: bytes, max_bytes: int) -> bytes:
+    """Decompress gzip bytes, raising if the decompressed size exceeds max_bytes.
+
+    gzip.decompress() has no output-size limit, so a small (and already
+    size-checked-while-compressed) gzip payload can still expand to an
+    arbitrarily large blob in memory - a decompression bomb. Reading via
+    GzipFile in bounded chunks lets us stop as soon as the cap is exceeded
+    instead of materialising the full output first.
+
+    Args:
+        raw: Compressed gzip bytes.
+        max_bytes: Maximum allowed decompressed size.
+
+    Returns:
+        Decompressed bytes.
+
+    Raises:
+        DownloadError: If the decompressed size exceeds max_bytes.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    with gzip.GzipFile(fileobj=BytesIO(raw)) as gz:
+        while True:
+            chunk = gz.read(64 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise DownloadError(
+                    f"Decompressed index exceeds max size of "
+                    f"{max_bytes // (1024 * 1024)} MB"
+                )
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def load_index(source: str, *, timeout: float | None = None) -> PrimerSchemeIndex:
     """Load a PrimerSchemeIndex from a URL or local file.
 
@@ -328,7 +364,11 @@ def load_index(source: str, *, timeout: float | None = None) -> PrimerSchemeInde
         raw = _download_bytes(source, timeout=timeout)
     else:
         raw = _read_index_bytes(source)
-    data = gzip.decompress(raw) if source.endswith(".gz") else raw
+    data = (
+        _decompress_gzip_bounded(raw, MAX_DOWNLOAD_BYTES)
+        if source.endswith(".gz")
+        else raw
+    )
     return PrimerSchemeIndex.model_validate_json(data)
 
 
