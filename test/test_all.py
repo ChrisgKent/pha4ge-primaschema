@@ -10,7 +10,7 @@ import primaschema.get_scheme as get_scheme
 import primaschema.lib as lib
 import primaschema.validate as validate_module
 from primaschema.schema.index import PrimerSchemeIndex
-from primaschema.schema.info import PrimerScheme
+from primaschema.schema.primer_scheme import PrimerScheme
 from primaschema.util import sha256_checksum
 
 data_dir = Path("test/data")
@@ -137,8 +137,8 @@ def test_cli_create():
         " --primer-scheme-name artic"
         " --amplicon-size 400"
         " --primer-scheme-version v4.1.0"
-        " --contributors 'ARTIC network'"
-        " --target-organisms sars-cov-2"
+        " --contributor 'ARTIC network'"
+        " --target-organism sars-cov-2"
         " --primer-scheme-development-status DEPRECATED"
         " --primer-scheme-creation-date 2020-09-04"
         " --bed-path test/data/dev-scheme/primer.bed"
@@ -228,8 +228,8 @@ def _minimal_scheme(**kwargs) -> PrimerScheme:
         primer_scheme_name="test-scheme",
         amplicon_size=400,
         primer_scheme_version="v1.0.0",
-        contributors=[Contributor(primer_scheme_contributor_name="Alice")],
-        target_organisms=[
+        primer_scheme_contributor=[Contributor(primer_scheme_contributor_name="Alice")],
+        primer_scheme_target_organism=[
             TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
         ],
         primer_scheme_development_status=SchemeStatus.DRAFT,
@@ -327,8 +327,10 @@ def test_cli_scheme_date_created_required():
             amplicon_size=400,
             primer_scheme_version="v1.0.0",
             primer_scheme_development_status=SchemeStatus.DRAFT,
-            contributors=[Contributor(primer_scheme_contributor_name="Alice")],
-            target_organisms=[
+            primer_scheme_contributor=[
+                Contributor(primer_scheme_contributor_name="Alice")
+            ],
+            primer_scheme_target_organism=[
                 TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
             ],
         )
@@ -345,8 +347,8 @@ def test_cli_scheme_date_added_defaults_to_today():
         amplicon_size=400,
         primer_scheme_version="v1.0.0",
         primer_scheme_development_status=SchemeStatus.DRAFT,
-        contributors=[Contributor(primer_scheme_contributor_name="Alice")],
-        target_organisms=[
+        primer_scheme_contributor=[Contributor(primer_scheme_contributor_name="Alice")],
+        primer_scheme_target_organism=[
             TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
         ],
         primer_scheme_creation_date=date(2024, 1, 1),
@@ -435,3 +437,36 @@ def test_dates_absent_when_none():
     json_bytes = serialize_primer_scheme_json(ps)
     assert b"primer_scheme_creation_date" not in json_bytes
     assert b"primer_scheme_submission_date" not in json_bytes
+
+
+# ---------------------------------------------------------------------------
+# Unit tests — primer_scheme_identifier
+# ---------------------------------------------------------------------------
+
+
+def test_primer_scheme_identifier_computed_when_absent():
+    """primer_scheme_identifier is computed from name/amplicon_size/version when not provided."""
+    from primaschema.util import serialize_primer_scheme_json
+
+    ps = _minimal_scheme()
+    assert ps.primer_scheme_identifier == "test-scheme/400/v1.0.0"
+    assert b"test-scheme/400/v1.0.0" in serialize_primer_scheme_json(ps)
+
+
+def test_primer_scheme_identifier_accepted_when_correct():
+    """A correct provided primer_scheme_identifier round-trips unchanged."""
+    ps = _minimal_scheme(primer_scheme_identifier="test-scheme/400/v1.0.0")
+    assert ps.primer_scheme_identifier == "test-scheme/400/v1.0.0"
+
+
+def test_primer_scheme_identifier_self_heals_when_wrong():
+    """The model silently recomputes rather than raising on a wrong identifier."""
+    ps = _minimal_scheme(primer_scheme_identifier="wrong/identifier/here")
+    assert ps.primer_scheme_identifier == "test-scheme/400/v1.0.0"
+
+
+def test_primer_scheme_identifier_recomputed_on_reassignment():
+    """Reassigning name/version keeps the identifier in sync rather than going stale."""
+    ps = _minimal_scheme()
+    ps.primer_scheme_version = "v2.0.0"
+    assert ps.primer_scheme_identifier == "test-scheme/400/v2.0.0"

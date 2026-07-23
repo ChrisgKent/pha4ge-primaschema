@@ -3,7 +3,7 @@
   "primer_scheme_name": "test",
   "amplicon_size": 400,
   "primer_scheme_version": "v2.0.0",
-  "contributors": [
+  "primer_scheme_contributor": [
     {
       "primer_scheme_contributor_name": "Chris"
     },
@@ -11,7 +11,7 @@
       "primer_scheme_contributor_name": "Chris2"
     }
   ],
-  "target_organisms": [
+  "primer_scheme_target_organism": [
     {
       "primer_scheme_target_organism_name": "SARs-CoV-2"
     },
@@ -21,12 +21,12 @@
   ],
   "primer_scheme_license": "CC-BY-SA-4.0",
   "primer_scheme_development_status": "DRAFT",
-  "vendors": [
+  "primer_scheme_vendor": [
     {
       "primer_scheme_vendor_name": "idt"
     }
   ],
-  "algorithm": {
+  "primer_scheme_generator": {
     "primer_scheme_generator_name": "PrimalScheme",
     "primer_scheme_generator_version": "3.01"
   },

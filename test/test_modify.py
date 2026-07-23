@@ -15,11 +15,11 @@ from primaschema.cli import (
 )
 from primaschema.schema.info import (
     Contributor,
-    PrimerScheme,
     SchemeTag,
     TargetOrganism,
     Vendor,
 )
+from primaschema.schema.primer_scheme import PrimerScheme
 
 data_dir = Path("test/data")
 FIXTURE = "auto-normalisation/test/400/v2.0.0"
@@ -57,8 +57,11 @@ def test_add_contributor_persists(tmp_path):
     before = PrimerScheme.model_validate_json(info_path.read_text())
     add_contributor(info_path, Contributor(primer_scheme_contributor_name="Alice"))
     after = PrimerScheme.model_validate_json(info_path.read_text())
-    assert len(after.contributors) == len(before.contributors) + 1
-    assert after.contributors[-1].primer_scheme_contributor_name == "Alice"
+    assert (
+        len(after.primer_scheme_contributor)
+        == len(before.primer_scheme_contributor) + 1
+    )
+    assert after.primer_scheme_contributor[-1].primer_scheme_contributor_name == "Alice"
 
 
 def test_remove_contributor_persists(tmp_path):
@@ -67,7 +70,10 @@ def test_remove_contributor_persists(tmp_path):
     before = PrimerScheme.model_validate_json(info_path.read_text())
     remove_contributor(info_path, 0)
     after = PrimerScheme.model_validate_json(info_path.read_text())
-    assert len(after.contributors) == len(before.contributors) - 1
+    assert (
+        len(after.primer_scheme_contributor)
+        == len(before.primer_scheme_contributor) - 1
+    )
 
 
 def test_add_vendor_persists(tmp_path):
@@ -76,8 +82,8 @@ def test_add_vendor_persists(tmp_path):
     before = PrimerScheme.model_validate_json(info_path.read_text())
     add_vendor(info_path, Vendor(primer_scheme_vendor_name="NewCo"))
     after = PrimerScheme.model_validate_json(info_path.read_text())
-    assert len(after.vendors) == len(before.vendors) + 1
-    assert after.vendors[-1].primer_scheme_vendor_name == "NewCo"
+    assert len(after.primer_scheme_vendor) == len(before.primer_scheme_vendor) + 1
+    assert after.primer_scheme_vendor[-1].primer_scheme_vendor_name == "NewCo"
 
 
 def test_add_target_organism_persists(tmp_path):
@@ -88,8 +94,14 @@ def test_add_target_organism_persists(tmp_path):
         info_path, TargetOrganism(primer_scheme_target_organism_name="Test virus")
     )
     after = PrimerScheme.model_validate_json(info_path.read_text())
-    assert len(after.target_organisms) == len(before.target_organisms) + 1
-    assert after.target_organisms[-1].primer_scheme_target_organism_name == "Test virus"
+    assert (
+        len(after.primer_scheme_target_organism)
+        == len(before.primer_scheme_target_organism) + 1
+    )
+    assert (
+        after.primer_scheme_target_organism[-1].primer_scheme_target_organism_name
+        == "Test virus"
+    )
 
 
 def test_remove_target_organism_persists(tmp_path):
@@ -98,7 +110,10 @@ def test_remove_target_organism_persists(tmp_path):
     before = PrimerScheme.model_validate_json(info_path.read_text())
     remove_target_organism(info_path, 0)
     after = PrimerScheme.model_validate_json(info_path.read_text())
-    assert len(after.target_organisms) == len(before.target_organisms) - 1
+    assert (
+        len(after.primer_scheme_target_organism)
+        == len(before.primer_scheme_target_organism) - 1
+    )
 
 
 def test_update_date_created_persists(tmp_path):

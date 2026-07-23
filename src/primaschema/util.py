@@ -5,7 +5,7 @@ from pathlib import Path
 import dnaio
 
 from primaschema import METADATA_FILE_NAME
-from primaschema.schema.info import PrimerScheme
+from primaschema.schema.primer_scheme import PrimerScheme
 
 
 def sha256_checksum(filename: Path):

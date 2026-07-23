@@ -2,7 +2,7 @@ from datetime import date
 from pathlib import Path
 
 from primaschema.schema.index import IndexPrimerScheme, PrimerSchemeIndex, update_index
-from primaschema.schema.info import PrimerScheme
+from primaschema.schema.primer_scheme import PrimerScheme
 
 DATA_DIR = Path("test/data")
 

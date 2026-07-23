@@ -39,7 +39,6 @@ from primaschema.schema.info import (
     Algorithm,
     Checksums,
     Contributor,
-    PrimerScheme,
     SchemeLicense,
     SchemeStatus,
     SchemeTag,
@@ -49,6 +48,7 @@ from primaschema.schema.info import (
 from primaschema.schema.info import (
     version as SCHEMA_VERSION,
 )
+from primaschema.schema.primer_scheme import PrimerScheme
 from primaschema.setup_logging import LogLevel, configure_logging
 from primaschema.util import (
     find_all_info_json,
@@ -297,9 +297,9 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
                 readme.write(note + "\n\n")
 
         readme.write("## Metadata\n\n")
-        if primer_scheme.target_organisms:
+        if primer_scheme.primer_scheme_target_organism:
             readme.write("**Target Organisms:**\n")
-            for to in primer_scheme.target_organisms:
+            for to in primer_scheme.primer_scheme_target_organism:
                 to_str = f"- {to.primer_scheme_target_organism_name or ''}"
                 if to.primer_scheme_target_organism_ncbi_taxon_id:
                     to_str += (
@@ -316,9 +316,9 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
         if primer_scheme.tags:
             readme.write(f"**Tags:** {', '.join(primer_scheme.tags)}\n\n")
 
-        if primer_scheme.contributors:
+        if primer_scheme.primer_scheme_contributor:
             readme.write("## Contributors\n\n")
-            for contributor in primer_scheme.contributors:
+            for contributor in primer_scheme.primer_scheme_contributor:
                 contrib_str = f"- {contributor.primer_scheme_contributor_name}"
                 if contributor.primer_scheme_contributor_email:
                     contrib_str += f" <{contributor.primer_scheme_contributor_email}>"
@@ -329,9 +329,9 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
                 readme.write(f"{contrib_str}\n")
             readme.write("\n")
 
-        if primer_scheme.vendors:
+        if primer_scheme.primer_scheme_vendor:
             readme.write("## Vendors\n\n")
-            for vendor in primer_scheme.vendors:
+            for vendor in primer_scheme.primer_scheme_vendor:
                 vendor_str = f"- {vendor.primer_scheme_vendor_name}"
                 if vendor.primer_scheme_vendor_kit_name:
                     vendor_str += f": {vendor.primer_scheme_vendor_kit_name}"
@@ -464,28 +464,30 @@ def _strip_field_prefix_name_transform(name: str) -> str:
 class CLIPrimerScheme(PrimerScheme):
     schema_version: Annotated[str, Parameter(parse=False)] = SCHEMA_VERSION
     primer_scheme_identifier: Annotated[Optional[str], Parameter(parse=False)] = None
-    contributors: Annotated[  # type: ignore
+    primer_scheme_contributor: Annotated[  # type: ignore
         List[Contributor],
         BeforeValidator(parse_contributors_pydantic),
         Parameter(
             help="Individuals, organisations, or institutions that have contributed to the development. e.g. `name=Alice Smith,email=alice@example.org,orcid=0000-0001-2345-6789`"
         ),
     ]
-    target_organisms: Annotated[  # type: ignore
+    primer_scheme_target_organism: Annotated[  # type: ignore
         List[TargetOrganism],
         BeforeValidator(parse_target_organisms_pydantic),
         Parameter(
             help="The organism(s) targeted by this primer scheme. e.g. `name=SARS-CoV-2,ncbi_taxon_id=2697049`"
         ),
     ]
-    vendors: Annotated[
+    primer_scheme_vendor: Annotated[
         Optional[List[Vendor]],
         BeforeValidator(parse_vendors_pydantic),
         Parameter(
             help="Vendors where one can purchase the primers or a kit containing them. e.g. `name=IDT,kit_name=10011442,url=https://example.com`"
         ),
     ] = None
-    algorithm: Annotated[Optional[Algorithm], Parameter(parse=False)] = None
+    primer_scheme_generator: Annotated[Optional[Algorithm], Parameter(parse=False)] = (
+        None
+    )
     # Don't expose the checksums to cli
     checksums: Annotated[Checksums | None, Parameter(parse=False)] = None
     # Override with Literal so Cyclopts displays proper SPDX strings instead of mangled enum names
@@ -502,7 +504,7 @@ class CLIPrimerScheme(PrimerScheme):
         Parameter(help="Date the scheme was added to this registry [default: today]"),
     ] = Field(default_factory=date.today)
 
-    @field_validator("target_organisms")
+    @field_validator("primer_scheme_target_organism")
     def validate_target_organisms(cls, v):
         for to in v:
             if (
@@ -584,8 +586,10 @@ def create(
     """Create a new primer scheme definition"""
     # Parse algorithm if provided
     if algorithm:
-        cli_ps.algorithm = parse_algorithm(algorithm)
-        logger.debug(f"Parsed algorithm '{algorithm}' -> Algorithm({cli_ps.algorithm})")
+        cli_ps.primer_scheme_generator = parse_algorithm(algorithm)
+        logger.debug(
+            f"Parsed algorithm '{algorithm}' -> Algorithm({cli_ps.primer_scheme_generator})"
+        )
 
     # Convert to base PrimerScheme to ensure strict adherence to the schema
     ps = PrimerScheme.model_validate(cli_ps.model_dump())
@@ -670,12 +674,16 @@ def add_contributor(
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if idx is not None:
         logger.debug(f"Inserting contributor at idx={idx}: {contributor}")
-        ps.contributors = [*ps.contributors[:idx], contributor, *ps.contributors[idx:]]
+        ps.primer_scheme_contributor = [
+            *ps.primer_scheme_contributor[:idx],
+            contributor,
+            *ps.primer_scheme_contributor[idx:],
+        ]
         actual_idx = idx
     else:
         logger.debug(f"Appending contributor: {contributor}")
-        ps.contributors = [*ps.contributors, contributor]
-        actual_idx = len(ps.contributors) - 1
+        ps.primer_scheme_contributor = [*ps.primer_scheme_contributor, contributor]
+        actual_idx = len(ps.primer_scheme_contributor) - 1
     _save_and_rebuild_readme(info_path, ps)
     logger.info(
         f"Updated contributors for {scheme_label}: added {contributor} at idx {actual_idx}"
@@ -696,19 +704,21 @@ def remove_contributor(
         f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
     )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
-    if idx >= len(ps.contributors):
+    if idx >= len(ps.primer_scheme_contributor):
         raise ValueError(
             f"Index {idx} out of range for contributors in {info_path}. "
-            f"Valid range is 0..{len(ps.contributors) - 1}."
+            f"Valid range is 0..{len(ps.primer_scheme_contributor) - 1}."
         )
-    if len(ps.contributors) == 1:
+    if len(ps.primer_scheme_contributor) == 1:
         raise ValueError(
             f"Cannot remove the only contributor from {scheme_label}. "
             "At least one contributor is required."
         )
-    removed = ps.contributors[idx]
+    removed = ps.primer_scheme_contributor[idx]
     logger.debug(f"Removing contributor at idx={idx}: {removed}")
-    ps.contributors = [c for i, c in enumerate(ps.contributors) if i != idx]
+    ps.primer_scheme_contributor = [
+        c for i, c in enumerate(ps.primer_scheme_contributor) if i != idx
+    ]
     _save_and_rebuild_readme(info_path, ps)
     logger.info(
         f"Updated contributors for {scheme_label}: removed {removed} at idx {idx}"
@@ -733,14 +743,14 @@ def update_contributor(
         f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
     )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
-    if idx >= len(ps.contributors):
+    if idx >= len(ps.primer_scheme_contributor):
         raise ValueError(
             f"Index {idx} out of range for contributors in {info_path}. "
-            f"Valid range is 0..{len(ps.contributors) - 1}."
+            f"Valid range is 0..{len(ps.primer_scheme_contributor) - 1}."
         )
-    previous = ps.contributors[idx]
+    previous = ps.primer_scheme_contributor[idx]
     logger.debug(f"Updating contributor at idx={idx}: {previous} -> {contributor}")
-    ps.contributors[idx] = contributor
+    ps.primer_scheme_contributor[idx] = contributor
     _save_and_rebuild_readme(info_path, ps)
     logger.info(
         f"Updated contributors for {scheme_label}: idx {idx} {previous} -> {contributor}"
@@ -765,16 +775,20 @@ def add_vendor(
         f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
     )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
-    if ps.vendors is None:
-        ps.vendors = []
+    if ps.primer_scheme_vendor is None:
+        ps.primer_scheme_vendor = []
     if idx is not None:
         logger.debug(f"Inserting vendor at idx={idx}: {vendor}")
-        ps.vendors = [*ps.vendors[:idx], vendor, *ps.vendors[idx:]]
+        ps.primer_scheme_vendor = [
+            *ps.primer_scheme_vendor[:idx],
+            vendor,
+            *ps.primer_scheme_vendor[idx:],
+        ]
         actual_idx = idx
     else:
         logger.debug(f"Appending vendor: {vendor}")
-        ps.vendors = [*ps.vendors, vendor]
-        actual_idx = len(ps.vendors) - 1
+        ps.primer_scheme_vendor = [*ps.primer_scheme_vendor, vendor]
+        actual_idx = len(ps.primer_scheme_vendor) - 1
     _save_and_rebuild_readme(info_path, ps)
     logger.info(
         f"Updated vendors for {scheme_label}: added {vendor} at idx {actual_idx}"
@@ -795,15 +809,15 @@ def remove_vendor(
         f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
     )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
-    if not ps.vendors or idx >= len(ps.vendors):
-        max_idx = len(ps.vendors) - 1 if ps.vendors else -1
+    if not ps.primer_scheme_vendor or idx >= len(ps.primer_scheme_vendor):
+        max_idx = len(ps.primer_scheme_vendor) - 1 if ps.primer_scheme_vendor else -1
         raise ValueError(
             f"Index {idx} out of range for vendors in {info_path}. "
             f"Valid range is 0..{max_idx}."
         )
-    removed = ps.vendors[idx]
+    removed = ps.primer_scheme_vendor[idx]
     logger.debug(f"Removing vendor at idx={idx}: {removed}")
-    ps.vendors.pop(idx)
+    ps.primer_scheme_vendor.pop(idx)
     _save_and_rebuild_readme(info_path, ps)
     logger.info(f"Updated vendors for {scheme_label}: removed {removed} at idx {idx}")
 
@@ -826,15 +840,15 @@ def update_vendor(
         f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
     )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
-    if not ps.vendors or idx >= len(ps.vendors):
-        max_idx = len(ps.vendors) - 1 if ps.vendors else -1
+    if not ps.primer_scheme_vendor or idx >= len(ps.primer_scheme_vendor):
+        max_idx = len(ps.primer_scheme_vendor) - 1 if ps.primer_scheme_vendor else -1
         raise ValueError(
             f"Index {idx} out of range for vendors in {info_path}. "
             f"Valid range is 0..{max_idx}."
         )
-    previous = ps.vendors[idx]
+    previous = ps.primer_scheme_vendor[idx]
     logger.debug(f"Updating vendor at idx={idx}: {previous} -> {vendor}")
-    ps.vendors[idx] = vendor
+    ps.primer_scheme_vendor[idx] = vendor
     _save_and_rebuild_readme(info_path, ps)
     logger.info(f"Updated vendors for {scheme_label}: idx {idx} {previous} -> {vendor}")
 
@@ -976,19 +990,21 @@ def remove_target_organism(
         f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
     )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
-    if len(ps.target_organisms) == 1:
+    if len(ps.primer_scheme_target_organism) == 1:
         raise ValueError(
             f"Cannot remove the only target organism from {scheme_label}. "
             "At least one target organism is required."
         )
-    if idx >= len(ps.target_organisms):
+    if idx >= len(ps.primer_scheme_target_organism):
         raise ValueError(
             f"Index {idx} out of range for target_organisms in {info_path}. "
-            f"Valid range is 0..{len(ps.target_organisms) - 1}."
+            f"Valid range is 0..{len(ps.primer_scheme_target_organism) - 1}."
         )
-    removed = ps.target_organisms[idx]
+    removed = ps.primer_scheme_target_organism[idx]
     logger.debug(f"Removing target_organism at idx={idx}: {removed}")
-    ps.target_organisms = [to for i, to in enumerate(ps.target_organisms) if i != idx]
+    ps.primer_scheme_target_organism = [
+        to for i, to in enumerate(ps.primer_scheme_target_organism) if i != idx
+    ]
     _save_and_rebuild_readme(info_path, ps)
     logger.info(
         f"Updated target_organisms for {scheme_label}: removed {removed} at idx {idx}"
@@ -1016,13 +1032,13 @@ def add_target_organism(
 
     # append
     if idx is None:
-        idx = len(ps.target_organisms)
+        idx = len(ps.primer_scheme_target_organism)
 
     logger.debug(f"Adding target_organism at idx={idx}: {target_organism}")
-    ps.target_organisms = [
-        *ps.target_organisms[:idx],
+    ps.primer_scheme_target_organism = [
+        *ps.primer_scheme_target_organism[:idx],
         target_organism,
-        *ps.target_organisms[idx:],
+        *ps.primer_scheme_target_organism[idx:],
     ]
     _save_and_rebuild_readme(info_path, ps)
     logger.info(
@@ -1043,10 +1059,10 @@ def update_algorithm(
     scheme_label = (
         f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
     )
-    previous = ps.algorithm
+    previous = ps.primer_scheme_generator
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     logger.debug(f"Updating algorithm: {previous} -> {algorithm}")
-    ps.algorithm = algorithm
+    ps.primer_scheme_generator = algorithm
     _save_and_rebuild_readme(info_path, ps)
     logger.info(f"Updated algorithm for {scheme_label}: {previous} -> {algorithm}")
 

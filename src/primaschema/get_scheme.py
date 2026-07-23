@@ -21,7 +21,7 @@ from primaschema import (
     REFERENCE_FILE_NAME,
 )
 from primaschema.schema.index import IndexPrimerScheme, PrimerSchemeIndex
-from primaschema.schema.info import PrimerScheme
+from primaschema.schema.primer_scheme import PrimerScheme
 from primaschema.util import serialize_fasta_records, serialize_primer_scheme_json
 
 logger = logging.getLogger(__name__)

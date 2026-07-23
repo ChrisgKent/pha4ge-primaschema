@@ -8,12 +8,12 @@ from primaschema.schema.info import (
     Checksums,
     ConfiguredBaseModel,
     Contributor,
-    PrimerScheme,
     SchemeLicense,
     SchemeStatus,
     SchemeTag,
     TargetOrganism,
 )
+from primaschema.schema.primer_scheme import PrimerScheme
 
 
 class IndexPrimerScheme(BaseModel):
@@ -35,11 +35,11 @@ class IndexPrimerScheme(BaseModel):
         default=...,
         description="""The version of the primer scheme.""",
     )
-    contributors: list[Contributor] = Field(
+    primer_scheme_contributor: list[Contributor] = Field(
         default=...,
         description="""Individuals, organisations, or institutions that have contributed to the development""",
     )
-    target_organisms: list[TargetOrganism] = Field(
+    primer_scheme_target_organism: list[TargetOrganism] = Field(
         default=...,
         description="""The organism against which this primer scheme is targeted. Lowercase, e.g. sars-cov-2""",
     )
@@ -125,8 +125,8 @@ class IndexPrimerScheme(BaseModel):
             primer_scheme_name=scheme.primer_scheme_name,
             amplicon_size=scheme.amplicon_size,
             primer_scheme_version=scheme.primer_scheme_version,
-            contributors=scheme.contributors,
-            target_organisms=scheme.target_organisms,
+            primer_scheme_contributor=scheme.primer_scheme_contributor,
+            primer_scheme_target_organism=scheme.primer_scheme_target_organism,
             primer_scheme_license=scheme.primer_scheme_license
             or SchemeLicense.CC_BY_SA_4FULL_STOP0,
             primer_scheme_development_status=scheme.primer_scheme_development_status,

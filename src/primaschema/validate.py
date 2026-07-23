@@ -15,7 +15,10 @@ from primaschema import (
     REFERENCE_FILE_NAME,
     SCHEMA_DIR,
 )
-from primaschema.schema.info import PrimerScheme
+from primaschema.schema.primer_scheme import (
+    PrimerScheme,
+    compute_primer_scheme_identifier,
+)
 from primaschema.util import read_fasta_records, sha256_checksum, write_fasta_records
 
 logger = logging.getLogger(__name__)
@@ -138,6 +141,40 @@ def validate_name(infopath: Path, primer_scheme: PrimerScheme | None = None):
         raise ValueError(
             f"Name mismatch for {scheme_subpath}: info ({primer_scheme.primer_scheme_name}) != path ({schemeid_path})"
         )
+
+
+def validate_identifier(infopath: Path, primer_scheme: PrimerScheme | None = None):
+    """Validate a stored primer_scheme_identifier against the other fields.
+
+    primer_scheme_identifier is computed and self-healed by the PrimerScheme
+    model itself, so a wrong value in the parsed object would already be
+    silently corrected. To catch a genuinely wrong value on disk, this reads
+    the file's raw JSON directly instead of relying on the parsed object.
+
+    Args:
+        infopath: Path to info.json.
+        primer_scheme: Optional PrimerScheme instance to avoid re-parsing.
+
+    Raises:
+        ValueError: If the file provides a primer_scheme_identifier that
+            disagrees with the one computed from name/amplicon_size/version.
+    """
+    if primer_scheme is None:
+        primer_scheme = PrimerScheme.model_validate_json(infopath.read_text())
+
+    raw = from_json(infopath.read_text())
+    provided = raw.get("primer_scheme_identifier")
+    if provided:
+        expected = compute_primer_scheme_identifier(
+            primer_scheme.primer_scheme_name,
+            primer_scheme.amplicon_size,
+            primer_scheme.primer_scheme_version,
+        )
+        if provided != expected:
+            raise ValueError(
+                f"primer_scheme_identifier mismatch in {infopath}: "
+                f"file has {provided!r}, expected {expected!r}"
+            )
 
 
 def validate_readme(infopath: Path, primer_scheme: PrimerScheme | None = None):
@@ -318,6 +355,7 @@ def validate(
     if primer_scheme is None:
         primer_scheme = PrimerScheme.model_validate_json(infopath.read_text())
     validate_name(infopath, primer_scheme)
+    validate_identifier(infopath, primer_scheme)
     logger.debug(f"Validated with Pydantic: {infopath}")
 
     # Validate primer + ref

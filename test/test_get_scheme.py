@@ -18,7 +18,7 @@ from primaschema.get_scheme import (
     resolve_schemes,
 )
 from primaschema.schema.index import PrimerSchemeIndex, update_index
-from primaschema.schema.info import PrimerScheme
+from primaschema.schema.primer_scheme import PrimerScheme
 from primaschema.util import serialize_fasta_records, serialize_primer_scheme_json
 
 DATA_DIR = Path("test/data")

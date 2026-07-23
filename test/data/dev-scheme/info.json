@@ -3,14 +3,14 @@
     "primer_scheme_name": "artic",
     "amplicon_size": 400,
     "primer_scheme_version": "v4.1.0",
-    "contributors": [
+    "primer_scheme_contributor": [
         {
             "primer_scheme_contributor_name": "ARTIC network",
             "primer_scheme_contributor_orcid": "1235678901234",
             "primer_scheme_contributor_email": "a@artic.network"
         }
     ],
-    "target_organisms": [
+    "primer_scheme_target_organism": [
         {
             "primer_scheme_target_organism_name": "sars-cov-2"
         }
@@ -24,7 +24,7 @@
     "citation": [
         "https://doi.org/10.1101%2F2020.09.04.283077"
     ],
-    "vendors": [
+    "primer_scheme_vendor": [
         {
             "primer_scheme_vendor_name": "IDT",
             "primer_scheme_vendor_kit_name": "10011442"

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 import primaschema.validate as validate_module
-from primaschema.schema.info import PrimerScheme
+from primaschema.schema.primer_scheme import PrimerScheme
 
 DATA_DIR = Path("test/data")
 
@@ -68,6 +68,43 @@ def test_validate_name_mismatch_raises(tmp_path: Path):
 
     with pytest.raises(ValueError):
         validate_module.validate_name(info_path)
+
+
+def test_validate_identifier_absent_does_not_raise(tmp_path: Path):
+    """validate_identifier is a no-op when the file has no stored identifier."""
+    scheme_dir = _copy_scheme(tmp_path)
+    info_path = scheme_dir / "info.json"
+
+    data = json.loads(info_path.read_text())
+    data.pop("primer_scheme_identifier", None)
+    info_path.write_text(json.dumps(data))
+
+    validate_module.validate_identifier(info_path)
+
+
+def test_validate_identifier_correct_does_not_raise(tmp_path: Path):
+    """validate_identifier passes when the stored identifier matches the computed one."""
+    scheme_dir = _copy_scheme(tmp_path)
+    info_path = scheme_dir / "info.json"
+
+    data = json.loads(info_path.read_text())
+    data["primer_scheme_identifier"] = "test/400/v2.0.0"
+    info_path.write_text(json.dumps(data))
+
+    validate_module.validate_identifier(info_path)
+
+
+def test_validate_identifier_wrong_raises(tmp_path: Path):
+    """validate_identifier raises when the stored identifier disagrees with the computed one."""
+    scheme_dir = _copy_scheme(tmp_path)
+    info_path = scheme_dir / "info.json"
+
+    data = json.loads(info_path.read_text())
+    data["primer_scheme_identifier"] = "wrong/identifier/here"
+    info_path.write_text(json.dumps(data))
+
+    with pytest.raises(ValueError):
+        validate_module.validate_identifier(info_path)
 
 
 def test_validate_readme_missing_raises(tmp_path: Path):
@@ -158,9 +195,9 @@ def test_create_range_infos_all_pass_linkml(tmp_path: Path):
                 case["amplicon_size"],
                 "--primer-scheme-version",
                 case["version"],
-                "--contributors",
+                "--contributor",
                 "primer_scheme_contributor_name=Validation Bot,primer_scheme_contributor_email=validation@example.org",
-                "--target-organisms",
+                "--target-organism",
                 case["target_organism"],
                 "--primer-scheme-development-status",
                 case["status"],
