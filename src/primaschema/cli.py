@@ -8,6 +8,7 @@ from datetime import date
 from typing import Annotated, Any, List, Literal, Optional
 
 from cyclopts import App, Parameter, validators
+from cyclopts.utils import default_name_transform
 from primalbedtools.bedfiles import BedLineParser, sort_bedlines
 from primalbedtools.validate import validate_ref_and_bed
 from pydantic import BeforeValidator, Field, field_validator, model_validator
@@ -73,9 +74,9 @@ _LicenseLiteral = Literal[
 
 # Patch PrimerScheme to fix cyclopts issue with string defaults for Enums
 # See https://github.com/pha4ge/primaschema/issues/new
-if isinstance(PrimerScheme.model_fields["license"].default, str):
-    PrimerScheme.model_fields["license"].default = SchemeLicense(
-        PrimerScheme.model_fields["license"].default
+if isinstance(PrimerScheme.model_fields["primer_scheme_license"].default, str):
+    PrimerScheme.model_fields["primer_scheme_license"].default = SchemeLicense(
+        PrimerScheme.model_fields["primer_scheme_license"].default
     )
 
 # Add rich formatted errors
@@ -109,14 +110,48 @@ modify_app = App(name="modify", help="Modify fields of an existing primer scheme
 app.command(modify_app)
 
 
+def _expand_short_keys(
+    parts: dict[str, str], model_cls: type, prefixes: tuple[str, ...]
+) -> dict[str, str]:
+    """Expand short `key=value` keys to a model's full field name.
+
+    Lets CLI input use short keys (e.g. `name=`) instead of the model's full,
+    schema-compatible field name (e.g. `primer_scheme_contributor_name=`).
+    A key is only rewritten if `prefix + key` matches a real field on
+    `model_cls`; anything else (including keys that are already full field
+    names) passes through unchanged so unknown keys still fail loudly.
+    """
+    fields = model_cls.model_fields
+    expanded = {}
+    for key, value in parts.items():
+        if key not in fields:
+            for prefix in prefixes:
+                candidate = f"{prefix}{key}"
+                if candidate in fields:
+                    key = candidate
+                    break
+        expanded[key] = value
+    return expanded
+
+
+_CONTRIBUTOR_KEY_PREFIXES = ("primer_scheme_contributor_", "primer_scheme_")
+_VENDOR_KEY_PREFIXES = ("primer_scheme_vendor_", "primer_scheme_")
+_TARGET_ORGANISM_KEY_PREFIXES = (
+    "primer_scheme_target_organism_",
+    "primer_scheme_target_",
+    "primer_scheme_",
+)
+
+
 def parse_contributor_single(v: Any) -> Contributor:
     """Parses a single contributor from various input formats.
 
     Args:
         v (Any): The input value to parse. Can be a Contributor object, a dictionary,
             or a string. If a string, it can be a JSON object, a comma-separated
-            key-value string (e.g., "name=John,email=john@example.com"), or
-            simply the name of the contributor.
+            key-value string (e.g., "name=John,email=john@example.com" or the full
+            "primer_scheme_contributor_name=John,primer_scheme_contributor_email=john@example.com"),
+            or simply the name of the contributor.
 
     Returns:
         Contributor: A Contributor object parsed from the input.
@@ -127,13 +162,17 @@ def parse_contributor_single(v: Any) -> Contributor:
     if isinstance(v, Contributor):
         return v
     if isinstance(v, dict):
-        return Contributor(**v)
+        return Contributor(
+            **_expand_short_keys(v, Contributor, _CONTRIBUTOR_KEY_PREFIXES)
+        )
     if isinstance(v, str):
         # Try JSON first
         try:
             data = json.loads(v)
             if isinstance(data, dict):
-                return Contributor(**data)
+                return Contributor(
+                    **_expand_short_keys(data, Contributor, _CONTRIBUTOR_KEY_PREFIXES)
+                )
         except json.JSONDecodeError:
             pass
 
@@ -144,10 +183,12 @@ def parse_contributor_single(v: Any) -> Contributor:
                 if "=" in part:
                     key, val = part.split("=", 1)
                     parts[key.strip()] = val.strip()
-            return Contributor(**parts)
+            return Contributor(
+                **_expand_short_keys(parts, Contributor, _CONTRIBUTOR_KEY_PREFIXES)
+            )
 
         # Fallback to name only
-        return Contributor(name=v)
+        return Contributor(primer_scheme_contributor_name=v)
     raise ValueError(f"Cannot parse contributor: {v}")
 
 
@@ -162,13 +203,13 @@ def parse_vendor_single(v: Any) -> Vendor:
     if isinstance(v, Vendor):
         return v
     if isinstance(v, dict):
-        return Vendor(**v)
+        return Vendor(**_expand_short_keys(v, Vendor, _VENDOR_KEY_PREFIXES))
     if isinstance(v, str):
         # Try JSON first
         try:
             data = json.loads(v)
             if isinstance(data, dict):
-                return Vendor(**data)
+                return Vendor(**_expand_short_keys(data, Vendor, _VENDOR_KEY_PREFIXES))
         except json.JSONDecodeError:
             pass
         # Key-value parsing
@@ -178,10 +219,10 @@ def parse_vendor_single(v: Any) -> Vendor:
                 if "=" in part:
                     key, val = part.split("=", 1)
                     parts[key.strip()] = val.strip()
-            return Vendor(**parts)
+            return Vendor(**_expand_short_keys(parts, Vendor, _VENDOR_KEY_PREFIXES))
 
         # Fallback to organisation_name only
-        return Vendor(organisation_name=v)
+        return Vendor(primer_scheme_vendor_name=v)
     raise ValueError(f"Cannot parse vendor: {v}")
 
 
@@ -203,14 +244,16 @@ def _save_and_rebuild_readme(
         logger.debug(f"Ensuring plot output directory in {scheme_dir / 'assets'}")
         (scheme_dir / "assets").mkdir(exist_ok=True)
         logger.debug(f"Rendering primer plot to {scheme_dir / 'assets' / 'primer.svg'}")
-        plot_primers(scheme_dir / PRIMER_FILE_NAME, scheme_dir / "assets" / "primer.svg")
+        plot_primers(
+            scheme_dir / PRIMER_FILE_NAME, scheme_dir / "assets" / "primer.svg"
+        )
 
 
 def create_status_badge(primer_scheme: PrimerScheme) -> str:
     """
     Create a badge for the README.md file
     """
-    match primer_scheme.status:
+    match primer_scheme.primer_scheme_development_status:
         case SchemeStatus.VALIDATED:
             color = "green"
         case SchemeStatus.WITHDRAWN | SchemeStatus.DEPRECATED:
@@ -218,7 +261,7 @@ def create_status_badge(primer_scheme: PrimerScheme) -> str:
         case _:
             color = "blue"
 
-    return f"![Generic badge](https://img.shields.io/badge/STATUS-{primer_scheme.status}-{color}.svg)"
+    return f"![Generic badge](https://img.shields.io/badge/STATUS-{primer_scheme.primer_scheme_development_status}-{color}.svg)"
 
 
 def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
@@ -235,33 +278,40 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
 
     with open(path / "README.md", "w", encoding="utf-8") as readme:
         readme.write(
-            f"# {primer_scheme.name} {primer_scheme.amplicon_size}bp {primer_scheme.version}\n\n"
+            f"# {primer_scheme.primer_scheme_name} {primer_scheme.amplicon_size}bp {primer_scheme.primer_scheme_version}\n\n"
         )
         # Add the status badge
         readme.write(f"{create_status_badge(primer_scheme)}\n\n")
 
         # Add citation if present
-        if primer_scheme.citations and primer_scheme.citations is not None:
-            for cit in primer_scheme.citations:
+        if primer_scheme.citation and primer_scheme.citation is not None:
+            for cit in primer_scheme.citation:
                 readme.write(f"> If you use this scheme please cite: {cit}\n\n")
 
-        if primer_scheme.notes and primer_scheme.notes is not None:
+        if (
+            primer_scheme.primer_scheme_details
+            and primer_scheme.primer_scheme_details is not None
+        ):
             readme.write("## Notes\n\n")
-            for note in primer_scheme.notes:
+            for note in primer_scheme.primer_scheme_details:
                 readme.write(note + "\n\n")
 
         readme.write("## Metadata\n\n")
         if primer_scheme.target_organisms:
             readme.write("**Target Organisms:**\n")
             for to in primer_scheme.target_organisms:
-                to_str = f"- {to.common_name or ''}"
-                if to.ncbi_tax_id:
-                    to_str += f" (Tax ID: {to.ncbi_tax_id})"
+                to_str = f"- {to.primer_scheme_target_organism_name or ''}"
+                if to.primer_scheme_target_organism_ncbi_taxon_id:
+                    to_str += (
+                        f" (Tax ID: {to.primer_scheme_target_organism_ncbi_taxon_id})"
+                    )
                 readme.write(f"{to_str}\n")
             readme.write("\n")
 
-        if primer_scheme.derived_from:
-            readme.write(f"**Derived from:** {primer_scheme.derived_from}\n\n")
+        if primer_scheme.primer_scheme_derived_from:
+            readme.write(
+                f"**Derived from:** {primer_scheme.primer_scheme_derived_from}\n\n"
+            )
 
         if primer_scheme.tags:
             readme.write(f"**Tags:** {', '.join(primer_scheme.tags)}\n\n")
@@ -269,22 +319,24 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
         if primer_scheme.contributors:
             readme.write("## Contributors\n\n")
             for contributor in primer_scheme.contributors:
-                contrib_str = f"- {contributor.name}"
-                if contributor.email:
-                    contrib_str += f" <{contributor.email}>"
-                if contributor.orcid_id:
-                    contrib_str += f" (ORCID: {contributor.orcid_id})"
+                contrib_str = f"- {contributor.primer_scheme_contributor_name}"
+                if contributor.primer_scheme_contributor_email:
+                    contrib_str += f" <{contributor.primer_scheme_contributor_email}>"
+                if contributor.primer_scheme_contributor_orcid:
+                    contrib_str += (
+                        f" (ORCID: {contributor.primer_scheme_contributor_orcid})"
+                    )
                 readme.write(f"{contrib_str}\n")
             readme.write("\n")
 
         if primer_scheme.vendors:
             readme.write("## Vendors\n\n")
             for vendor in primer_scheme.vendors:
-                vendor_str = f"- {vendor.organisation_name}"
-                if vendor.kit_name:
-                    vendor_str += f": {vendor.kit_name}"
-                if vendor.home_page:
-                    vendor_str += f" ([Website]({vendor.home_page}))"
+                vendor_str = f"- {vendor.primer_scheme_vendor_name}"
+                if vendor.primer_scheme_vendor_kit_name:
+                    vendor_str += f": {vendor.primer_scheme_vendor_kit_name}"
+                if vendor.primer_scheme_vendor_url:
+                    vendor_str += f" ([Website]({vendor.primer_scheme_vendor_url}))"
                 readme.write(f"{vendor_str}\n")
             readme.write("\n")
 
@@ -299,8 +351,8 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
         details_json = serialize_primer_scheme_json(primer_scheme).decode("utf-8")
         readme.write(f"""```json\n{details_json}\n```\n\n""")
 
-        if primer_scheme.license and (
-            footer := LICENSE_FOOTERS.get(primer_scheme.license)
+        if primer_scheme.primer_scheme_license and (
+            footer := LICENSE_FOOTERS.get(primer_scheme.primer_scheme_license)
         ):
             readme.write(footer)
 
@@ -315,8 +367,11 @@ def parse_algorithm(v: Any) -> Optional[Algorithm]:
     if isinstance(v, str):
         if ":" in v:
             name, version = v.split(":", 1)
-            return Algorithm(name=name, version=version)
-        return Algorithm(name=v)
+            return Algorithm(
+                primer_scheme_generator_name=name,
+                primer_scheme_generator_version=version,
+            )
+        return Algorithm(primer_scheme_generator_name=v)
     raise ValueError(f"Cannot parse algorithm: {v}")
 
 
@@ -324,13 +379,19 @@ def parse_target_organism_single(v: Any) -> TargetOrganism:
     if isinstance(v, TargetOrganism):
         return v
     if isinstance(v, dict):
-        return TargetOrganism(**v)
+        return TargetOrganism(
+            **_expand_short_keys(v, TargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES)
+        )
     if isinstance(v, str):
         # Try JSON first
         try:
             data = json.loads(v)
             if isinstance(data, dict):
-                return TargetOrganism(**data)
+                return TargetOrganism(
+                    **_expand_short_keys(
+                        data, TargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES
+                    )
+                )
         except json.JSONDecodeError:
             pass
 
@@ -341,14 +402,18 @@ def parse_target_organism_single(v: Any) -> TargetOrganism:
                 if "=" in part:
                     key, val = part.split("=", 1)
                     parts[key.strip()] = val.strip()
-            return TargetOrganism(**parts)
+            return TargetOrganism(
+                **_expand_short_keys(
+                    parts, TargetOrganism, _TARGET_ORGANISM_KEY_PREFIXES
+                )
+            )
 
         # If it looks like an int, assume it's a tax id
         if v.isdigit():
-            return TargetOrganism(ncbi_tax_id=v)
+            return TargetOrganism(primer_scheme_target_organism_ncbi_taxon_id=v)
 
         # Otherwise assume common name
-        return TargetOrganism(common_name=v)
+        return TargetOrganism(primer_scheme_target_organism_name=v)
     raise ValueError(f"Cannot parse target organism: {v}")
 
 
@@ -381,42 +446,58 @@ def _normalize_license(v: Any) -> Any:
     return v
 
 
+_FIELD_PREFIX = "primer_scheme_"
+
+
+def _strip_field_prefix_name_transform(name: str) -> str:
+    """Strip the redundant 'primer_scheme_' prefix from CLI flag names.
+
+    The Pydantic model retains the full field names (e.g. `primer_scheme_name`)
+    for schema/data-file compatibility, but typing `--primer-scheme-name` on
+    every flag is redundant, so the CLI drops the prefix (e.g. `--name`).
+    """
+    if name.startswith(_FIELD_PREFIX):
+        name = name[len(_FIELD_PREFIX) :]
+    return default_name_transform(name)
+
+
 class CLIPrimerScheme(PrimerScheme):
     schema_version: Annotated[str, Parameter(parse=False)] = SCHEMA_VERSION
+    primer_scheme_identifier: Annotated[Optional[str], Parameter(parse=False)] = None
     contributors: Annotated[  # type: ignore
         List[Contributor],
         BeforeValidator(parse_contributors_pydantic),
         Parameter(
-            help="Individuals, organisations, or institutions that have contributed to the development. e.g. `name=Alice Smith,email=alice@example.org,orcid_id=0000-0001-2345-6789`"
+            help="Individuals, organisations, or institutions that have contributed to the development. e.g. `name=Alice Smith,email=alice@example.org,orcid=0000-0001-2345-6789`"
         ),
     ]
     target_organisms: Annotated[  # type: ignore
         List[TargetOrganism],
         BeforeValidator(parse_target_organisms_pydantic),
         Parameter(
-            help="The organism(s) targeted by this primer scheme. e.g. `common_name=SARS-CoV-2,ncbi_tax_id=2697049`"
+            help="The organism(s) targeted by this primer scheme. e.g. `name=SARS-CoV-2,ncbi_taxon_id=2697049`"
         ),
     ]
     vendors: Annotated[
         Optional[List[Vendor]],
         BeforeValidator(parse_vendors_pydantic),
         Parameter(
-            help="Vendors where one can purchase the primers or a kit containing them. e.g. `organisation_name=IDT,kit_name=10011442,home_page=https://example.com`"
+            help="Vendors where one can purchase the primers or a kit containing them. e.g. `name=IDT,kit_name=10011442,url=https://example.com`"
         ),
     ] = None
     algorithm: Annotated[Optional[Algorithm], Parameter(parse=False)] = None
     # Don't expose the checksums to cli
     checksums: Annotated[Checksums | None, Parameter(parse=False)] = None
     # Override with Literal so Cyclopts displays proper SPDX strings instead of mangled enum names
-    license: Annotated[  # type: ignore
+    primer_scheme_license: Annotated[  # type: ignore
         Optional[_LicenseLiteral],
         BeforeValidator(_normalize_license),
     ] = SchemeLicense.CC_BY_SA_4FULL_STOP0.value
-    date_created: Annotated[
+    primer_scheme_creation_date: Annotated[
         date,
         Parameter(help="Date the primer scheme was originally created by its authors"),
     ]
-    date_added: Annotated[
+    primer_scheme_submission_date: Annotated[
         date,
         Parameter(help="Date the scheme was added to this registry [default: today]"),
     ] = Field(default_factory=date.today)
@@ -424,9 +505,13 @@ class CLIPrimerScheme(PrimerScheme):
     @field_validator("target_organisms")
     def validate_target_organisms(cls, v):
         for to in v:
-            if not to.common_name and not to.ncbi_tax_id:
+            if (
+                not to.primer_scheme_target_organism_name
+                and not to.primer_scheme_target_organism_ncbi_taxon_id
+            ):
                 raise ValueError(
-                    "TargetOrganism must have at least one of 'common_name' or 'ncbi_tax_id'"
+                    "TargetOrganism must have at least one of "
+                    "'primer_scheme_target_organism_name' or 'primer_scheme_target_organism_ncbi_taxon_id'"
                 )
         return v
 
@@ -435,8 +520,12 @@ class CLIPrimerScheme(PrimerScheme):
     def uppercase_enums(cls, data: Any) -> Any:
         if isinstance(data, dict):
             # Uppercase status if it's a string
-            if "status" in data and isinstance(data["status"], str):
-                data["status"] = data["status"].upper()
+            if "primer_scheme_development_status" in data and isinstance(
+                data["primer_scheme_development_status"], str
+            ):
+                data["primer_scheme_development_status"] = data[
+                    "primer_scheme_development_status"
+                ].upper()
 
             # Uppercase tags if it's a list of strings
             if "tags" in data and isinstance(data["tags"], list):
@@ -446,11 +535,22 @@ class CLIPrimerScheme(PrimerScheme):
         return data
 
 
+# Keep the full `--primer-scheme-*` flag as a working alias alongside the
+# shortened name produced by _strip_field_prefix_name_transform, so existing
+# scripts/docs written against the full flag names keep working.
+for _field_name, _field_info in CLIPrimerScheme.model_fields.items():
+    if _field_name.startswith(_FIELD_PREFIX):
+        _field_info.metadata.append(
+            Parameter(alias="--" + _field_name.replace("_", "-"))
+        )
+del _field_name, _field_info
+
+
 @app.command
 def create(
     cli_ps: Annotated[
         CLIPrimerScheme,
-        Parameter(name="*"),
+        Parameter(name="*", name_transform=_strip_field_prefix_name_transform),
     ],
     bed_path: Annotated[
         pathlib.Path,
@@ -489,13 +589,20 @@ def create(
 
     # Convert to base PrimerScheme to ensure strict adherence to the schema
     ps = PrimerScheme.model_validate(cli_ps.model_dump())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     _headers, bedlines = BedLineParser.from_file(str(bed_path))
     bedlines = sort_bedlines(bedlines)
     logger.debug(f"Loaded and sorted bedlines from {bed_path}")
 
     # Create a directory to store the new scheme in.
-    output_dir = primer_schemes_path / ps.name / str(ps.amplicon_size) / ps.version
+    output_dir = (
+        primer_schemes_path
+        / ps.primer_scheme_name
+        / str(ps.amplicon_size)
+        / ps.primer_scheme_version
+    )
     if output_dir.exists():
         raise ValueError(f"Output directory already exists: {output_dir}")
 
@@ -504,7 +611,7 @@ def create(
     # Use a tmp dir to ensure atomic
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
-        tmp_version_level = tmp_path / ps.version
+        tmp_version_level = tmp_path / ps.primer_scheme_version
         tmp_version_level.mkdir()
         logger.debug("Created tmp dir")
 
@@ -524,12 +631,14 @@ def create(
 
         # Generate checksums
         ps.checksums = Checksums(
-            primer_sha256=sha256_checksum(tmp_version_level / PRIMER_FILE_NAME),
-            reference_sha256=sha256_checksum(tmp_version_level / REFERENCE_FILE_NAME),
+            primer_scheme_sha256=sha256_checksum(tmp_version_level / PRIMER_FILE_NAME),
+            reference_sequence_sha256=sha256_checksum(
+                tmp_version_level / REFERENCE_FILE_NAME
+            ),
         )
         logger.debug(
-            f"Generated checksums for {PRIMER_FILE_NAME} ({ps.checksums.primer_sha256})"
-            f" and {REFERENCE_FILE_NAME} ({ps.checksums.reference_sha256})"
+            f"Generated checksums for {PRIMER_FILE_NAME} ({ps.checksums.primer_scheme_sha256})"
+            f" and {REFERENCE_FILE_NAME} ({ps.checksums.reference_sequence_sha256})"
         )
 
         # Write info.json to tmp
@@ -555,7 +664,9 @@ def add_contributor(
 ):
     """Add a contributor to the scheme."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if idx is not None:
         logger.debug(f"Inserting contributor at idx={idx}: {contributor}")
@@ -581,7 +692,9 @@ def remove_contributor(
 ):
     """Remove a contributor by index."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if idx >= len(ps.contributors):
         raise ValueError(
@@ -616,7 +729,9 @@ def update_contributor(
 ):
     """Update a contributor at a specific index."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if idx >= len(ps.contributors):
         raise ValueError(
@@ -646,7 +761,9 @@ def add_vendor(
 ):
     """Add a vendor to the scheme."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if ps.vendors is None:
         ps.vendors = []
@@ -674,7 +791,9 @@ def remove_vendor(
 ):
     """Remove a vendor by index."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if not ps.vendors or idx >= len(ps.vendors):
         max_idx = len(ps.vendors) - 1 if ps.vendors else -1
@@ -703,7 +822,9 @@ def update_vendor(
 ):
     """Update a vendor at a specific index."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if not ps.vendors or idx >= len(ps.vendors):
         max_idx = len(ps.vendors) - 1 if ps.vendors else -1
@@ -728,7 +849,9 @@ def add_tag(
 ):
     """Add a tag to the scheme."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if tag not in ps.tags:
         logger.debug(f"Adding tag: {tag}")
@@ -749,7 +872,9 @@ def remove_tag(
 ):
     """Remove a tag from the scheme."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if ps.tags and tag in ps.tags:
         logger.debug(f"Removing tag: {tag}")
@@ -773,11 +898,13 @@ def update_license(
 ):
     """Update the scheme license."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
-    previous = ps.license
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
+    previous = ps.primer_scheme_license
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     logger.debug(f"Updating license: {previous} -> {license}")
-    ps.license = license
+    ps.primer_scheme_license = license
     _save_and_rebuild_readme(info_path, ps)
     logger.info(f"Updated license for {scheme_label}: {previous} -> {license}")
 
@@ -792,11 +919,13 @@ def update_status(
 ):
     """Update the scheme status."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
-    previous = ps.status
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
+    previous = ps.primer_scheme_development_status
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     logger.debug(f"Updating status: {previous} -> {status}")
-    ps.status = status
+    ps.primer_scheme_development_status = status
     _save_and_rebuild_readme(info_path, ps)
     logger.info(f"Updated status for {scheme_label}: {previous} -> {status}")
 
@@ -811,8 +940,8 @@ def update_date_created(
 ):
     """Update the date the primer scheme was originally created."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    previous = ps.date_created
-    ps.date_created = date_created
+    previous = ps.primer_scheme_creation_date
+    ps.primer_scheme_creation_date = date_created
     _save_and_rebuild_readme(info_path, ps)
     logger.info(f"Updated date_created: {previous} -> {date_created}")
 
@@ -827,8 +956,8 @@ def update_date_added(
 ):
     """Update the date the scheme was added to the registry."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    previous = ps.date_added
-    ps.date_added = date_added
+    previous = ps.primer_scheme_submission_date
+    ps.primer_scheme_submission_date = date_added
     _save_and_rebuild_readme(info_path, ps)
     logger.info(f"Updated date_added: {previous} -> {date_added}")
 
@@ -843,7 +972,9 @@ def remove_target_organism(
 ):
     """Remove a target organism by index."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     if len(ps.target_organisms) == 1:
         raise ValueError(
@@ -878,7 +1009,9 @@ def add_target_organism(
         target_organism = TargetOrganism()
 
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
 
     # append
@@ -907,7 +1040,9 @@ def update_algorithm(
 ):
     """Update the algorithm."""
     ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     previous = ps.algorithm
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     logger.debug(f"Updating algorithm: {previous} -> {algorithm}")
@@ -1002,7 +1137,9 @@ def validate(
         errors: list[str] = []
         for info_path in find_all_info_json(path):
             ps = PrimerScheme.model_validate_json(info_path.read_text())
-            scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+            scheme_label = (
+                f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+            )
             logger.debug(f"Validating scheme {scheme_label} from {info_path}")
             try:
                 validate_scheme(
@@ -1022,7 +1159,9 @@ def validate(
             )
     else:
         ps = PrimerScheme.model_validate_json(path.read_text())
-        scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+        scheme_label = (
+            f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+        )
         logger.debug(f"Validating scheme {scheme_label} from {path}")
         validate_scheme(
             path,
@@ -1050,11 +1189,11 @@ def _sync_metadata_from_path(
         ) from exc
 
     changed = False
-    if primer_scheme.name != name:
+    if primer_scheme.primer_scheme_name != name:
         logger.debug(
-            f"Syncing scheme name from {primer_scheme.name} to {name} for {info_path}"
+            f"Syncing scheme name from {primer_scheme.primer_scheme_name} to {name} for {info_path}"
         )
-        primer_scheme.name = name
+        primer_scheme.primer_scheme_name = name
         changed = True
     if primer_scheme.amplicon_size != amplicon_size:
         logger.debug(
@@ -1062,11 +1201,11 @@ def _sync_metadata_from_path(
         )
         primer_scheme.amplicon_size = amplicon_size
         changed = True
-    if primer_scheme.version != version:
+    if primer_scheme.primer_scheme_version != version:
         logger.debug(
-            f"Syncing version from {primer_scheme.version} to {version} for {info_path}"
+            f"Syncing version from {primer_scheme.primer_scheme_version} to {version} for {info_path}"
         )
-        primer_scheme.version = version
+        primer_scheme.primer_scheme_version = version
         changed = True
     return changed
 
@@ -1080,7 +1219,9 @@ def _rebuild_one(
     if sync_metadata:
         if _sync_metadata_from_path(ps, info_path):
             logger.debug(f"Synced scheme metadata from path for {info_path}")
-    scheme_label = f"{ps.name}/{ps.amplicon_size}/{ps.version}"
+    scheme_label = (
+        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
+    )
     logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
     _h, bls = BedLineParser.from_file(info_path.parent / PRIMER_FILE_NAME)
     logger.debug(f"Loaded bedlines from {info_path.parent / PRIMER_FILE_NAME}")
@@ -1093,8 +1234,10 @@ def _rebuild_one(
     validate_ref_and_bed(bls, str((info_path.parent / REFERENCE_FILE_NAME).absolute()))
     logger.debug("Computing sha256 checksums")
     ps.checksums = Checksums(
-        primer_sha256=sha256_checksum(info_path.parent / PRIMER_FILE_NAME),
-        reference_sha256=sha256_checksum(info_path.parent / REFERENCE_FILE_NAME),
+        primer_scheme_sha256=sha256_checksum(info_path.parent / PRIMER_FILE_NAME),
+        reference_sequence_sha256=sha256_checksum(
+            info_path.parent / REFERENCE_FILE_NAME
+        ),
     )
     _save_and_rebuild_readme(info_path, ps, rebuild_plot=True)
     return scheme_label

@@ -64,11 +64,11 @@ def test_validate_autonormalize_primer_bed(tmp_path: Path):
     primer_path = scheme_dir / "primer.bed"
     primer_scheme = PrimerScheme.model_validate_json(info_path.read_text())
 
-    assert sha256_checksum(primer_path) != primer_scheme.checksums.primer_sha256
+    assert sha256_checksum(primer_path) != primer_scheme.checksums.primer_scheme_sha256
 
     validate_module.validate(info_path, strict=True, fix=True)
 
-    assert sha256_checksum(primer_path) == primer_scheme.checksums.primer_sha256
+    assert sha256_checksum(primer_path) == primer_scheme.checksums.primer_scheme_sha256
 
 
 def test_validate_autonormalize_reference_fasta(tmp_path: Path):
@@ -81,11 +81,17 @@ def test_validate_autonormalize_reference_fasta(tmp_path: Path):
     reference_path = scheme_dir / "reference.fasta"
     primer_scheme = PrimerScheme.model_validate_json(info_path.read_text())
 
-    assert sha256_checksum(reference_path) != primer_scheme.checksums.reference_sha256
+    assert (
+        sha256_checksum(reference_path)
+        != primer_scheme.checksums.reference_sequence_sha256
+    )
 
     validate_module.validate(info_path, strict=True, fix=True)
 
-    assert sha256_checksum(reference_path) == primer_scheme.checksums.reference_sha256
+    assert (
+        sha256_checksum(reference_path)
+        == primer_scheme.checksums.reference_sequence_sha256
+    )
 
 
 def test_validate_all_aggregates_errors_create_cli(tmp_path: Path):
@@ -128,13 +134,13 @@ def test_cli_create():
     run("mkdir -p built && rm -rf built/artic", cwd="./")
     run(
         "uv run primaschema create"
-        " --name artic"
+        " --primer-scheme-name artic"
         " --amplicon-size 400"
-        " --version v4.1.0"
+        " --primer-scheme-version v4.1.0"
         " --contributors 'ARTIC network'"
         " --target-organisms sars-cov-2"
-        " --status DEPRECATED"
-        " --date-created 2020-09-04"
+        " --primer-scheme-development-status DEPRECATED"
+        " --primer-scheme-creation-date 2020-09-04"
         " --bed-path test/data/dev-scheme/primer.bed"
         " --reference-path test/data/dev-scheme/reference.fasta"
         " --primer-schemes-path built",
@@ -195,18 +201,18 @@ def test_rebuild_syncs_metadata_from_path(tmp_path: Path):
     shutil.copytree(src, dest)
     info_path = dest / "info.json"
     primer_scheme = PrimerScheme.model_validate_json(info_path.read_text())
-    assert primer_scheme.name != "artic-sars-cov-2"
+    assert primer_scheme.primer_scheme_name != "artic-sars-cov-2"
     assert primer_scheme.amplicon_size != 1200
-    assert primer_scheme.version != "v9.9.9"
+    assert primer_scheme.primer_scheme_version != "v9.9.9"
 
     from primaschema.cli import _rebuild_one
 
     _rebuild_one(info_path, sync_metadata=True)
 
     updated_scheme = PrimerScheme.model_validate_json(info_path.read_text())
-    assert updated_scheme.name == "artic-sars-cov-2"
+    assert updated_scheme.primer_scheme_name == "artic-sars-cov-2"
     assert updated_scheme.amplicon_size == 1200
-    assert updated_scheme.version == "v9.9.9"
+    assert updated_scheme.primer_scheme_version == "v9.9.9"
 
 
 # ---------------------------------------------------------------------------
@@ -219,12 +225,14 @@ def _minimal_scheme(**kwargs) -> PrimerScheme:
 
     defaults = dict(
         schema_version="1.0.0",
-        name="test-scheme",
+        primer_scheme_name="test-scheme",
         amplicon_size=400,
-        version="v1.0.0",
-        contributors=[Contributor(name="Alice")],
-        target_organisms=[TargetOrganism(common_name="SARS-CoV-2")],
-        status=SchemeStatus.DRAFT,
+        primer_scheme_version="v1.0.0",
+        contributors=[Contributor(primer_scheme_contributor_name="Alice")],
+        target_organisms=[
+            TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+        ],
+        primer_scheme_development_status=SchemeStatus.DRAFT,
     )
     defaults.update(kwargs)
     return PrimerScheme(**defaults)
@@ -291,15 +299,18 @@ def test_license_footer_contains_url(license, url_fragment):
 def test_primer_scheme_dates_optional():
     """PrimerScheme can be constructed without dates; both default to None."""
     ps = _minimal_scheme()
-    assert ps.date_created is None
-    assert ps.date_added is None
+    assert ps.primer_scheme_creation_date is None
+    assert ps.primer_scheme_submission_date is None
 
 
 def test_primer_scheme_dates_accept_valid():
     """PrimerScheme accepts date objects for date_created and date_added."""
-    ps = _minimal_scheme(date_created=date(2024, 1, 15), date_added=date(2024, 6, 1))
-    assert ps.date_created == date(2024, 1, 15)
-    assert ps.date_added == date(2024, 6, 1)
+    ps = _minimal_scheme(
+        primer_scheme_creation_date=date(2024, 1, 15),
+        primer_scheme_submission_date=date(2024, 6, 1),
+    )
+    assert ps.primer_scheme_creation_date == date(2024, 1, 15)
+    assert ps.primer_scheme_submission_date == date(2024, 6, 1)
 
 
 def test_cli_scheme_date_created_required():
@@ -312,12 +323,14 @@ def test_cli_scheme_date_created_required():
     with pytest.raises(ValidationError):
         CLIPrimerScheme(
             schema_version="1.0.0",
-            name="test",
+            primer_scheme_name="test",
             amplicon_size=400,
-            version="v1.0.0",
-            status=SchemeStatus.DRAFT,
-            contributors=[Contributor(name="Alice")],
-            target_organisms=[TargetOrganism(common_name="SARS-CoV-2")],
+            primer_scheme_version="v1.0.0",
+            primer_scheme_development_status=SchemeStatus.DRAFT,
+            contributors=[Contributor(primer_scheme_contributor_name="Alice")],
+            target_organisms=[
+                TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+            ],
         )
 
 
@@ -328,15 +341,17 @@ def test_cli_scheme_date_added_defaults_to_today():
 
     ps = CLIPrimerScheme(
         schema_version="1.0.0",
-        name="test",
+        primer_scheme_name="test",
         amplicon_size=400,
-        version="v1.0.0",
-        status=SchemeStatus.DRAFT,
-        contributors=[Contributor(name="Alice")],
-        target_organisms=[TargetOrganism(common_name="SARS-CoV-2")],
-        date_created=date(2024, 1, 1),
+        primer_scheme_version="v1.0.0",
+        primer_scheme_development_status=SchemeStatus.DRAFT,
+        contributors=[Contributor(primer_scheme_contributor_name="Alice")],
+        target_organisms=[
+            TargetOrganism(primer_scheme_target_organism_name="SARS-CoV-2")
+        ],
+        primer_scheme_creation_date=date(2024, 1, 1),
     )
-    assert ps.date_added == date.today()
+    assert ps.primer_scheme_submission_date == date.today()
 
 
 # ---------------------------------------------------------------------------
@@ -361,7 +376,7 @@ def test_readme_license_footer_written(tmp_path, license, url_fragment):
     from primaschema.cli import generate_readme
     from primaschema.schema.info import SchemeLicense
 
-    ps = _minimal_scheme(license=SchemeLicense(license))
+    ps = _minimal_scheme(primer_scheme_license=SchemeLicense(license))
     generate_readme(tmp_path, ps)
     readme = (tmp_path / "README.md").read_text()
     assert (
@@ -375,7 +390,7 @@ def test_readme_no_footer_when_no_license(tmp_path):
     """generate_readme omits the license footer section when license is None."""
     from primaschema.cli import generate_readme
 
-    ps = _minimal_scheme(license=None)
+    ps = _minimal_scheme(primer_scheme_license=None)
     generate_readme(tmp_path, ps)
     readme = (tmp_path / "README.md").read_text()
     assert (
@@ -388,7 +403,10 @@ def test_readme_contains_dates_in_json(tmp_path):
     """generate_readme includes date_created and date_added in the embedded JSON block."""
     from primaschema.cli import generate_readme
 
-    ps = _minimal_scheme(date_created=date(2024, 1, 15), date_added=date(2024, 6, 1))
+    ps = _minimal_scheme(
+        primer_scheme_creation_date=date(2024, 1, 15),
+        primer_scheme_submission_date=date(2024, 6, 1),
+    )
     generate_readme(tmp_path, ps)
     readme = (tmp_path / "README.md").read_text()
     assert "2024-01-15" in readme
@@ -399,11 +417,14 @@ def test_dates_round_trip():
     """Dates survive serialize → deserialize via serialize_primer_scheme_json."""
     from primaschema.util import serialize_primer_scheme_json
 
-    ps = _minimal_scheme(date_created=date(2024, 1, 15), date_added=date(2024, 6, 1))
+    ps = _minimal_scheme(
+        primer_scheme_creation_date=date(2024, 1, 15),
+        primer_scheme_submission_date=date(2024, 6, 1),
+    )
     json_bytes = serialize_primer_scheme_json(ps)
     restored = PrimerScheme.model_validate_json(json_bytes)
-    assert restored.date_created == date(2024, 1, 15)
-    assert restored.date_added == date(2024, 6, 1)
+    assert restored.primer_scheme_creation_date == date(2024, 1, 15)
+    assert restored.primer_scheme_submission_date == date(2024, 6, 1)
 
 
 def test_dates_absent_when_none():
@@ -412,5 +433,5 @@ def test_dates_absent_when_none():
 
     ps = _minimal_scheme()
     json_bytes = serialize_primer_scheme_json(ps)
-    assert b"date_created" not in json_bytes
-    assert b"date_added" not in json_bytes
+    assert b"primer_scheme_creation_date" not in json_bytes
+    assert b"primer_scheme_submission_date" not in json_bytes

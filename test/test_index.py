@@ -22,13 +22,13 @@ def _clone_scheme(
 ) -> PrimerScheme:
     data = scheme.model_dump()
     if name is not None:
-        data["name"] = name
+        data["primer_scheme_name"] = name
     if version is not None:
-        data["version"] = version
+        data["primer_scheme_version"] = version
     if date_created is not None:
-        data["date_created"] = date_created
+        data["primer_scheme_creation_date"] = date_created
     if date_added is not None:
-        data["date_added"] = date_added
+        data["primer_scheme_submission_date"] = date_added
     return PrimerScheme.model_validate(data)
 
 
@@ -91,7 +91,7 @@ def test_index_flatten_and_get():
 
     flattened = psi.flatten()
     assert len(flattened) == 2
-    versions = {entry.version for entry in flattened}
+    versions = {entry.primer_scheme_version for entry in flattened}
     assert versions == {"v2.0.0", "v2.0.1"}
 
     all_for_name = psi.get_schemes_from_index("test")
@@ -99,7 +99,7 @@ def test_index_flatten_and_get():
 
     filtered = psi.get_schemes_from_index("test", 400, "v2.0.1")
     assert len(filtered) == 1
-    assert filtered[0].version == "v2.0.1"
+    assert filtered[0].primer_scheme_version == "v2.0.1"
 
 
 def test_index_includes_dates():
@@ -112,8 +112,8 @@ def test_index_includes_dates():
     psi = PrimerSchemeIndex()
     update_index([ps], psi)
     entry = psi.primerschemes["test"][400]["v2.0.0"]
-    assert entry.date_created == date(2024, 1, 15)
-    assert entry.date_added == date(2024, 6, 1)
+    assert entry.primer_scheme_creation_date == date(2024, 1, 15)
+    assert entry.primer_scheme_submission_date == date(2024, 6, 1)
 
 
 def test_index_dates_round_trip():
@@ -127,13 +127,13 @@ def test_index_dates_round_trip():
     update_index([ps], psi)
     reloaded = PrimerSchemeIndex.model_validate_json(psi.model_dump_json())
     entry = reloaded.primerschemes["test"][400]["v2.0.0"]
-    assert entry.date_created == date(2024, 1, 15)
-    assert entry.date_added == date(2024, 6, 1)
+    assert entry.primer_scheme_creation_date == date(2024, 1, 15)
+    assert entry.primer_scheme_submission_date == date(2024, 6, 1)
 
 
 def test_index_dates_absent_when_none():
     """IndexPrimerScheme.from_primer_scheme leaves date fields as None when the source scheme has no dates."""
     ps = _load_scheme()
     entry = IndexPrimerScheme.from_primer_scheme(ps)
-    assert entry.date_created is None
-    assert entry.date_added is None
+    assert entry.primer_scheme_creation_date is None
+    assert entry.primer_scheme_submission_date is None

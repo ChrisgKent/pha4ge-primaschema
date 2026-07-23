@@ -58,9 +58,12 @@ def _scheme_dir_from_url(url: str) -> Path:
     fallback: list[Path] = []
     for info_path in SCHEMES_DIR.rglob("info.json"):
         data = json.loads(info_path.read_text())
-        if data.get("name") != name or str(data.get("amplicon_size")) != size:
+        if (
+            data.get("primer_scheme_name") != name
+            or str(data.get("amplicon_size")) != size
+        ):
             continue
-        if data.get("version") == version:
+        if data.get("primer_scheme_version") == version:
             return info_path.parent
         fallback.append(info_path)
 
@@ -90,7 +93,7 @@ class TestDownloadSchemes(unittest.TestCase):
     def test_download_scheme_all_flag(self):
         # Downloads all schemes when all_schemes is True.
         ps = _load_scheme()
-        ps2 = ps.model_copy(update={"version": "v4.1.1"})
+        ps2 = ps.model_copy(update={"primer_scheme_version": "v4.1.1"})
         psi = _build_index(ps, ps2)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -180,8 +183,8 @@ class TestDownloadSchemes(unittest.TestCase):
                 records = list(reader)
             expected_ref = serialize_fasta_records(records)
 
-            entry.checksums.primer_sha256 = _sha256_bytes(expected_primer)
-            entry.checksums.reference_sha256 = _sha256_bytes(expected_ref)
+            entry.checksums.primer_scheme_sha256 = _sha256_bytes(expected_primer)
+            entry.checksums.reference_sequence_sha256 = _sha256_bytes(expected_ref)
 
             with patch(
                 "primaschema.get_scheme._download_bytes",
@@ -341,7 +344,7 @@ class TestDownloadSchemes(unittest.TestCase):
     def test_download_scheme_allow_multiple(self):
         # Downloads all matches when allow_multiple is True.
         ps = _load_scheme()
-        ps2 = ps.model_copy(update={"version": "v4.1.1"})
+        ps2 = ps.model_copy(update={"primer_scheme_version": "v4.1.1"})
         psi = _build_index(ps, ps2)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -368,7 +371,7 @@ class TestDownloadSchemes(unittest.TestCase):
     def test_download_scheme_multiple_without_flag(self):
         # Raises when multiple matches are found but allow_multiple is False.
         ps = _load_scheme()
-        ps2 = ps.model_copy(update={"version": "v4.1.1"})
+        ps2 = ps.model_copy(update={"primer_scheme_version": "v4.1.1"})
         psi = _build_index(ps, ps2)
 
         with self.assertRaises(ValueError):

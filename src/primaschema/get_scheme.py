@@ -326,7 +326,10 @@ def _require_checksums(index: IndexPrimerScheme, force: bool) -> None:
             logger.warning("Missing checksums in index; continuing due to --force")
             return
         raise DownloadError("Checksums are required in the index")
-    if not index.checksums.primer_sha256 or not index.checksums.reference_sha256:
+    if (
+        not index.checksums.primer_scheme_sha256
+        or not index.checksums.reference_sequence_sha256
+    ):
         if force:
             logger.warning("Incomplete checksums in index; continuing due to --force")
             return
@@ -441,7 +444,12 @@ def _download_scheme_entry(
 
     _require_checksums(scheme, force=force)
 
-    output_dir = output / scheme.name / str(scheme.amplicon_size) / scheme.version
+    output_dir = (
+        output
+        / scheme.primer_scheme_name
+        / str(scheme.amplicon_size)
+        / scheme.primer_scheme_version
+    )
     if check_output_exists and output_dir.exists():
         msg = f"Output directory already exists: {output_dir}"
         if strict:
@@ -453,7 +461,10 @@ def _download_scheme_entry(
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_dir_path = Path(tmp_dir)
             tmp_scheme_dir = (
-                tmp_dir_path / scheme.name / str(scheme.amplicon_size) / scheme.version
+                tmp_dir_path
+                / scheme.primer_scheme_name
+                / str(scheme.amplicon_size)
+                / scheme.primer_scheme_version
             )
             tmp_scheme_dir.mkdir(parents=True, exist_ok=True)
 
@@ -493,16 +504,16 @@ def _download_scheme_entry(
             )
 
             if scheme.checksums:
-                if scheme.checksums.primer_sha256:
+                if scheme.checksums.primer_scheme_sha256:
                     _verify_checksum(
                         tmp_scheme_dir / PRIMER_FILE_NAME,
-                        scheme.checksums.primer_sha256,
+                        scheme.checksums.primer_scheme_sha256,
                         force=force,
                     )
-                if scheme.checksums.reference_sha256:
+                if scheme.checksums.reference_sequence_sha256:
                     _verify_checksum(
                         tmp_scheme_dir / REFERENCE_FILE_NAME,
-                        scheme.checksums.reference_sha256,
+                        scheme.checksums.reference_sequence_sha256,
                         force=force,
                     )
 
@@ -552,7 +563,12 @@ def download_schemes(
         raise ValueError("No schemes provided")
 
     for scheme in schemes:
-        output_dir = output / scheme.name / str(scheme.amplicon_size) / scheme.version
+        output_dir = (
+            output
+            / scheme.primer_scheme_name
+            / str(scheme.amplicon_size)
+            / scheme.primer_scheme_version
+        )
         if output_dir.exists():
             msg = f"Output directory already exists: {output_dir}"
             if strict:
@@ -596,9 +612,17 @@ def download_schemes(
         final_outputs: list[Path] = []
         for scheme in schemes:
             source_dir = (
-                staging_root / scheme.name / str(scheme.amplicon_size) / scheme.version
+                staging_root
+                / scheme.primer_scheme_name
+                / str(scheme.amplicon_size)
+                / scheme.primer_scheme_version
             )
-            dest_dir = output / scheme.name / str(scheme.amplicon_size) / scheme.version
+            dest_dir = (
+                output
+                / scheme.primer_scheme_name
+                / str(scheme.amplicon_size)
+                / scheme.primer_scheme_version
+            )
             dest_dir.mkdir(parents=True, exist_ok=True)
             for filename in (METADATA_FILE_NAME, PRIMER_FILE_NAME, REFERENCE_FILE_NAME):
                 shutil.copy2(source_dir / filename, dest_dir / filename)
