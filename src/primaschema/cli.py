@@ -1,3 +1,4 @@
+import csv
 import gzip
 import json
 import logging
@@ -31,6 +32,7 @@ from primaschema.get_scheme import (
 )
 from primaschema.lib import plot_primers
 from primaschema.license_footers import LICENSE_FOOTERS
+from primaschema.schema.flatten import CSV_FIELDNAMES, flatten_scheme, unflatten_scheme
 from primaschema.schema.index import (
     PrimerSchemeIndex,
     update_index,
@@ -1377,6 +1379,46 @@ def get(
         logger.info(f"Scheme files written to {output_dirs[0]}")
     else:
         logger.info(f"Scheme files written to {len(output_dirs)} directories")
+
+
+@app.command
+def flatten(
+    info_path: Annotated[
+        pathlib.Path,
+        Parameter(validator=validators.Path(exists=True, file_okay=True)),
+    ],
+    output_path: Annotated[
+        pathlib.Path,
+        Parameter(help="Path to write the single-row CSV to"),
+    ] = pathlib.Path("scheme.csv"),
+):
+    """Flatten a single info.json into a one-row, semicolon-delimited CSV."""
+    ps = PrimerScheme.model_validate_json(info_path.read_text())
+    row = flatten_scheme(ps)
+    with output_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(row)
+    logger.info(f"Flattened {info_path} to {output_path}")
+
+
+@app.command
+def unflatten(
+    csv_path: Annotated[
+        pathlib.Path,
+        Parameter(validator=validators.Path(exists=True, file_okay=True)),
+    ],
+    output_path: Annotated[
+        pathlib.Path,
+        Parameter(help="Path to write the reconstructed info.json to"),
+    ],
+):
+    """Reconstruct an info.json from a one-row CSV produced by `flatten`."""
+    with csv_path.open(newline="") as f:
+        row = next(csv.DictReader(f))
+    ps = unflatten_scheme(row)
+    output_path.write_bytes(serialize_primer_scheme_json(ps))
+    logger.info(f"Unflattened {csv_path} to {output_path}")
 
 
 def main():

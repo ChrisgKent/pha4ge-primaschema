@@ -470,3 +470,27 @@ def test_primer_scheme_identifier_recomputed_on_reassignment():
     ps = _minimal_scheme()
     ps.primer_scheme_version = "v2.0.0"
     assert ps.primer_scheme_identifier == "test-scheme/400/v2.0.0"
+
+
+# ---------------------------------------------------------------------------
+# Integration tests — flatten / unflatten CLI
+# ---------------------------------------------------------------------------
+
+
+def test_cli_flatten_unflatten_round_trip(tmp_path: Path):
+    """flatten() then unflatten() reconstructs an equivalent scheme."""
+    from primaschema.cli import flatten, unflatten
+
+    info_path = data_dir / "dev-scheme/info.json"
+    csv_path = tmp_path / "scheme.csv"
+    restored_path = tmp_path / "restored_info.json"
+
+    flatten(info_path, csv_path)
+    assert csv_path.exists()
+
+    unflatten(csv_path, restored_path)
+    assert restored_path.exists()
+
+    original = PrimerScheme.model_validate_json(info_path.read_text())
+    restored = PrimerScheme.model_validate_json(restored_path.read_text())
+    assert restored.model_dump() == original.model_dump()

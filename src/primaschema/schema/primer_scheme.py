@@ -18,6 +18,33 @@ def compute_primer_scheme_identifier(
     return f"{name}/{amplicon_size}/{version}"
 
 
+def check_primer_scheme_identifier(
+    provided: str | None, name: str, amplicon_size, version: str, source: str
+) -> None:
+    """Raise if a provided primer_scheme_identifier disagrees with the computed one.
+
+    Used at every boundary where a primer_scheme_identifier might have been
+    supplied by something other than PrimerScheme itself (a hand-edited
+    info.json, an edited flattened CSV row) — those are hard errors, always,
+    everywhere. This is distinct from PrimerScheme's own `mode="after"`
+    validator, which silently self-heals on every construction/attribute
+    assignment (required so legitimate multi-step internal updates, e.g.
+    `rebuild --sync-metadata`, don't spuriously fail mid-update); this check
+    is only ever invoked explicitly, at a genuine load/reconstruction
+    boundary, never automatically on every assignment.
+    """
+    if not provided:
+        return
+    expected = compute_primer_scheme_identifier(name, amplicon_size, version)
+    if provided != expected:
+        raise ValueError(
+            f"primer_scheme_identifier mismatch in {source}: "
+            f"found {provided!r}, expected {expected!r}. "
+            "Update primer_scheme_identifier to match, or unset it and it "
+            "will be computed automatically."
+        )
+
+
 class PrimerScheme(_GeneratedPrimerScheme):
     @model_validator(mode="after")
     def _sync_primer_scheme_identifier(self):

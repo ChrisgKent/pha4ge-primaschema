@@ -17,7 +17,7 @@ from primaschema import (
 )
 from primaschema.schema.primer_scheme import (
     PrimerScheme,
-    compute_primer_scheme_identifier,
+    check_primer_scheme_identifier,
 )
 from primaschema.util import read_fasta_records, sha256_checksum, write_fasta_records
 
@@ -163,18 +163,13 @@ def validate_identifier(infopath: Path, primer_scheme: PrimerScheme | None = Non
         primer_scheme = PrimerScheme.model_validate_json(infopath.read_text())
 
     raw = from_json(infopath.read_text())
-    provided = raw.get("primer_scheme_identifier")
-    if provided:
-        expected = compute_primer_scheme_identifier(
-            primer_scheme.primer_scheme_name,
-            primer_scheme.amplicon_size,
-            primer_scheme.primer_scheme_version,
-        )
-        if provided != expected:
-            raise ValueError(
-                f"primer_scheme_identifier mismatch in {infopath}: "
-                f"file has {provided!r}, expected {expected!r}"
-            )
+    check_primer_scheme_identifier(
+        raw.get("primer_scheme_identifier"),
+        primer_scheme.primer_scheme_name,
+        primer_scheme.amplicon_size,
+        primer_scheme.primer_scheme_version,
+        source=str(infopath),
+    )
 
 
 def validate_readme(infopath: Path, primer_scheme: PrimerScheme | None = None):
