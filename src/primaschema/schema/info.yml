@@ -42,8 +42,7 @@ classes:
       - primer_scheme_license
       - primer_scheme_development_status
       - primer_scheme_application
-      - primer_scheme_assay_type
-      - tags
+      - primer_scheme_scope
       - primer_scheme_derived_from
       - citation
       - primer_scheme_details
@@ -161,7 +160,11 @@ slots:
     required: true
     identifier: true
     description: The name of the primer scheme used in an assay.
-    pattern: "^[\\da-z0-9_.-]+$"
+    # Excludes a bare "." or ".." - the name becomes a filesystem path
+    # component (<name>/<amplicon_size>/<version>/), and the base character
+    # class alone (digits, lowercase letters, "_", ".", "-") would otherwise
+    # permit ".." as a valid name, allowing directory traversal.
+    pattern: "^(?!\\.{1,2}$)[\\da-z0-9_.-]+$"
     aliases:
       - name
   primer_scheme_version:
@@ -244,12 +247,10 @@ slots:
     description: "The application the primer scheme was intended for."
     range: SchemeApplication
     required: false
-    # TODO: no controlled vocabulary supplied yet - permissible_values are placeholders
-  primer_scheme_assay_type:
+  primer_scheme_scope:
     description: "The range of targets the primer scheme is intented for."
-    range: SchemeAssayType
+    range: SchemeScope
     required: false
-    # TODO: no controlled vocabulary supplied yet - permissible_values are placeholders
   citation:
     slot_uri: IAO:0000301
     description: "A textual entity intended to identify a particular publication."
@@ -267,11 +268,6 @@ slots:
     aliases:
       - derived_from
       - parental_primer_scheme_name
-  tags:
-    description: "Tags to describe the primer scheme"
-    range: SchemeTag
-    multivalued: true
-    inlined_as_list: true
   primer_scheme_generator:
     description: "The algorithm (if any) used to generate this primer scheme"
     range: Algorithm
@@ -296,10 +292,20 @@ enums:
     description: "Status of this amplicon primer scheme"
     permissible_values:
       DRAFT:
+        description: "A primer scheme that has been designed but requires further testing and validation."
+        meaning: GENEPIO:0102322
       TESTED:
+        description: "A primer scheme that has been translated into a physical primer mixture that has been evaluated on samples."
+        meaning: GENEPIO:0102323
       VALIDATED:
+        description: "A primer scheme that has been translated into a physical primer mixture and determined to work as expected on a range of samples."
+        meaning: GENEPIO:0102324
       DEPRECATED:
+        description: "A primer scheme that is no longer recommended for use because it is outdated or has been replaced by a better alternative."
+        meaning: GENEPIO:0102325
       WITHDRAWN:
+        description: "A primer scheme that has been removed or retracted so that it is no longer available."
+        meaning: GENEPIO:0102326
   SchemeLicense:
     description: "License under which the primer scheme is distributed"
     permissible_values:
@@ -310,20 +316,24 @@ enums:
       CC-BY-NC-SA-4.0:
       CC-BY-ND-4.0:
       CC-BY-NC-ND-4.0:
-  SchemeTag:
-    description: "Tag for this primer scheme"
-    permissible_values:
-      WASTEWATER:
-      CLINICAL:
-      WHOLE-GENOME:
-      MULTI-TARGET:
-      PANEL:
-      QPCR:
   SchemeApplication:
     description: "The application the primer scheme was intended for."
-    # TODO: controlled vocabulary not yet supplied - populate before use
-    permissible_values: {}
-  SchemeAssayType:
+    permissible_values:
+      CLINICAL:
+        description: "An entity used in a clinical setting."
+        meaning: GENEPIO:0102330
+      WASTEWATER:
+        description: "An entity used for studying and/or testing wastewater."
+        meaning: GENEPIO:0102331
+  SchemeScope:
     description: "The range of targets the primer scheme is intented for."
-    # TODO: controlled vocabulary not yet supplied - populate before use
-    permissible_values: {}
+    permissible_values:
+      WHOLE-GENOME:
+        description: "A primer scheme designed to target a whole genome via a series of tiling amplicons."
+        meaning: GENEPIO:0102327
+      PANEL:
+        description: "A primer scheme designed to target multiple specific genes and mutations."
+        meaning: GENEPIO:0102328
+      QPCR:
+        description: "A primer scheme designed to target a single genetic region as part of a Quantitative Polymerase Chain Reaction (qPCR) assay."
+        meaning: GENEPIO:0102329

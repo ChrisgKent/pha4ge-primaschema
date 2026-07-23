@@ -37,12 +37,20 @@ _REPEATABLE_SCALAR_FIELDS = {
     "primer_scheme_identifier_alias",
     "citation",
     "primer_scheme_details",
-    "tags",
 }
 
 
 def _pack(values: list) -> str:
-    """Join values with ';', using '' for missing/None so position stays aligned."""
+    """Join values with ';', using '' for missing/None so position stays aligned.
+
+    Uses the default (non-empty) lineterminator and strips it afterward,
+    rather than passing lineterminator="" to csv.writer. csv.writer only
+    quotes an embedded '\\n'/'\\r' in a value when that character appears in
+    the dialect's lineterminator - with lineterminator="" that check can
+    never trigger, so an embedded newline/CR would be written unquoted and
+    silently truncate the value on unpack. Confirmed: with the default
+    terminator, csv.writer correctly quotes an embedded '\\n'.
+    """
     cells = ["" if v is None else str(v) for v in values]
     if len(cells) == 1:
         # csv.writer defensively quotes a lone empty field as '""' to
@@ -51,13 +59,12 @@ def _pack(values: list) -> str:
         # single empty value packs the same way an empty value in any other
         # position would.
         buf = io.StringIO()
-        csv.writer(buf, delimiter=_DELIMITER, lineterminator="").writerow(
-            [cells[0], ""]
-        )
-        return buf.getvalue()[: -len(_DELIMITER)]
+        csv.writer(buf, delimiter=_DELIMITER).writerow([cells[0], ""])
+        packed = buf.getvalue().rstrip("\r\n")
+        return packed[: -len(_DELIMITER)]
     buf = io.StringIO()
-    csv.writer(buf, delimiter=_DELIMITER, lineterminator="").writerow(cells)
-    return buf.getvalue()
+    csv.writer(buf, delimiter=_DELIMITER).writerow(cells)
+    return buf.getvalue().rstrip("\r\n")
 
 
 def _unpack(cell: str) -> list[str]:

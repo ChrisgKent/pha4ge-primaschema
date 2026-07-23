@@ -86,10 +86,25 @@ class SchemeStatus(str, Enum):
     Status of this amplicon primer scheme
     """
     DRAFT = "DRAFT"
+    """
+    A primer scheme that has been designed but requires further testing and validation.
+    """
     TESTED = "TESTED"
+    """
+    A primer scheme that has been translated into a physical primer mixture that has been evaluated on samples.
+    """
     VALIDATED = "VALIDATED"
+    """
+    A primer scheme that has been translated into a physical primer mixture and determined to work as expected on a range of samples.
+    """
     DEPRECATED = "DEPRECATED"
+    """
+    A primer scheme that is no longer recommended for use because it is outdated or has been replaced by a better alternative.
+    """
     WITHDRAWN = "WITHDRAWN"
+    """
+    A primer scheme that has been removed or retracted so that it is no longer available.
+    """
 
 
 class SchemeLicense(str, Enum):
@@ -105,30 +120,36 @@ class SchemeLicense(str, Enum):
     CC_BY_NC_ND_4FULL_STOP0 = "CC-BY-NC-ND-4.0"
 
 
-class SchemeTag(str, Enum):
-    """
-    Tag for this primer scheme
-    """
-    WASTEWATER = "WASTEWATER"
-    CLINICAL = "CLINICAL"
-    WHOLE_GENOME = "WHOLE-GENOME"
-    MULTI_TARGET = "MULTI-TARGET"
-    PANEL = "PANEL"
-    QPCR = "QPCR"
-
-
-class SchemeApplication(str):
+class SchemeApplication(str, Enum):
     """
     The application the primer scheme was intended for.
     """
-    pass
+    CLINICAL = "CLINICAL"
+    """
+    An entity used in a clinical setting.
+    """
+    WASTEWATER = "WASTEWATER"
+    """
+    An entity used for studying and/or testing wastewater.
+    """
 
 
-class SchemeAssayType(str):
+class SchemeScope(str, Enum):
     """
     The range of targets the primer scheme is intented for.
     """
-    pass
+    WHOLE_GENOME = "WHOLE-GENOME"
+    """
+    A primer scheme designed to target a whole genome via a series of tiling amplicons.
+    """
+    PANEL = "PANEL"
+    """
+    A primer scheme designed to target multiple specific genes and mutations.
+    """
+    QPCR = "QPCR"
+    """
+    A primer scheme designed to target a single genetic region as part of a Quantitative Polymerase Chain Reaction (qPCR) assay.
+    """
 
 
 
@@ -147,8 +168,7 @@ class PrimerScheme(ConfiguredBaseModel):
     primer_scheme_license: Optional[SchemeLicense] = Field(default='CC-BY-SA-4.0', description="""The license under which the primer scheme is distributed""")
     primer_scheme_development_status: SchemeStatus = Field(default=..., description="""The status of the of the primer scheme in its development cycle.""")
     primer_scheme_application: Optional[SchemeApplication] = Field(default=None, description="""The application the primer scheme was intended for.""")
-    primer_scheme_assay_type: Optional[SchemeAssayType] = Field(default=None, description="""The range of targets the primer scheme is intented for.""")
-    tags: Optional[list[SchemeTag]] = Field(default=[], description="""Tags to describe the primer scheme""")
+    primer_scheme_scope: Optional[SchemeScope] = Field(default=None, description="""The range of targets the primer scheme is intented for.""")
     primer_scheme_derived_from: Optional[str] = Field(default=None, description="""The original primer scheme from which the present scheme was derived.""")
     citation: Optional[list[str]] = Field(default=[], description="""A textual entity intended to identify a particular publication.""")
     primer_scheme_details: Optional[list[str]] = Field(default=[], description="""Any additional information about a primer scheme outside of the primer scheme specification.""")
@@ -160,7 +180,7 @@ class PrimerScheme(ConfiguredBaseModel):
 
     @field_validator('primer_scheme_name')
     def pattern_primer_scheme_name(cls, v):
-        pattern=re.compile(r"^[\da-z0-9_.-]+$")
+        pattern=re.compile(r"^(?!\.{1,2}$)[\da-z0-9_.-]+$")
         if isinstance(v, list):
             for element in v:
                 if isinstance(element, str) and not pattern.match(element):

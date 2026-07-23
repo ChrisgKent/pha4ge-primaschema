@@ -4,18 +4,15 @@ from pathlib import Path
 
 from primaschema.cli import (
     add_contributor,
-    add_tag,
     add_target_organism,
     add_vendor,
     remove_contributor,
-    remove_tag,
     remove_target_organism,
     update_date_added,
     update_date_created,
 )
 from primaschema.schema.info import (
     Contributor,
-    SchemeTag,
     TargetOrganism,
     Vendor,
 )
@@ -31,24 +28,6 @@ def _copy_scheme(tmp_path: Path, rel_path: str) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(src, dest)
     return dest
-
-
-def test_add_tag_persists(tmp_path):
-    """add_tag must write the new tag to info.json (was silently dropped)."""
-    info_path = _copy_scheme(tmp_path, FIXTURE) / "info.json"
-    add_tag(info_path, SchemeTag.CLINICAL)
-    ps = PrimerScheme.model_validate_json(info_path.read_text())
-    assert ps.tags is not None
-    assert SchemeTag.CLINICAL in ps.tags
-
-
-def test_remove_tag_persists(tmp_path):
-    """remove_tag writes the deletion to info.json so the tag is absent on reload."""
-    info_path = _copy_scheme(tmp_path, FIXTURE) / "info.json"
-    add_tag(info_path, SchemeTag.CLINICAL)
-    remove_tag(info_path, SchemeTag.CLINICAL)
-    ps = PrimerScheme.model_validate_json(info_path.read_text())
-    assert ps.tags is None or SchemeTag.CLINICAL not in ps.tags
 
 
 def test_add_contributor_persists(tmp_path):

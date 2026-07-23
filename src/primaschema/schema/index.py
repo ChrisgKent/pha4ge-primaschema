@@ -10,7 +10,6 @@ from primaschema.schema.info import (
     Contributor,
     SchemeLicense,
     SchemeStatus,
-    SchemeTag,
     TargetOrganism,
 )
 from primaschema.schema.primer_scheme import PrimerScheme
@@ -50,10 +49,6 @@ class IndexPrimerScheme(BaseModel):
     primer_scheme_development_status: SchemeStatus = Field(
         default=...,
         description="""The status of the of the primer scheme in its development cycle.""",
-    )
-    tags: Optional[list[SchemeTag]] = Field(
-        default=[],
-        description="""Tags to describe the primer scheme""",
     )
     primer_scheme_derived_from: Optional[str] = Field(
         default=None,
@@ -130,7 +125,6 @@ class IndexPrimerScheme(BaseModel):
             primer_scheme_license=scheme.primer_scheme_license
             or SchemeLicense.CC_BY_SA_4FULL_STOP0,
             primer_scheme_development_status=scheme.primer_scheme_development_status,
-            tags=scheme.tags,
             primer_scheme_derived_from=scheme.primer_scheme_derived_from,
             checksums=scheme.checksums,
             primer_scheme_creation_date=scheme.primer_scheme_creation_date,

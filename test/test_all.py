@@ -494,3 +494,58 @@ def test_cli_flatten_unflatten_round_trip(tmp_path: Path):
     original = PrimerScheme.model_validate_json(info_path.read_text())
     restored = PrimerScheme.model_validate_json(restored_path.read_text())
     assert restored.model_dump() == original.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Regression tests — primer_scheme_application / primer_scheme_scope
+# ---------------------------------------------------------------------------
+
+
+def test_primer_scheme_application_and_scope_round_trip_via_json():
+    """A populated primer_scheme_application/scope must survive a JSON round trip.
+
+    Regression test: these two fields previously had empty LinkML
+    permissible_values, so gen-pydantic generated them as plain
+    `class X(str): pass` fallbacks (needing arbitrary_types_allowed) rather
+    than real enums. That made them write-only: model_dump_json() succeeded,
+    but model_validate_json() on the result always raised
+    ValidationError (needs_python_object), because pydantic's `isinstance`
+    check for arbitrary types can't run against a plain JSON string.
+    """
+    from primaschema.schema.info import SchemeApplication, SchemeScope
+
+    ps = _minimal_scheme(
+        primer_scheme_application=SchemeApplication.WASTEWATER,
+        primer_scheme_scope=SchemeScope.QPCR,
+    )
+    restored = PrimerScheme.model_validate_json(ps.model_dump_json())
+    assert restored.primer_scheme_application == SchemeApplication.WASTEWATER
+    assert restored.primer_scheme_scope == SchemeScope.QPCR
+
+
+def test_primer_scheme_application_and_scope_optional():
+    """Both fields remain optional, defaulting to None when not provided."""
+    ps = _minimal_scheme()
+    assert ps.primer_scheme_application is None
+    assert ps.primer_scheme_scope is None
+
+
+def test_cli_create_help_renders_without_crashing():
+    """`primaschema create --help` must not crash.
+
+    Regression test: cyclopts' Enum default-rendering assumes a non-None
+    member (`argument.field_info.default.name`), which raised AttributeError
+    for primer_scheme_application/primer_scheme_scope once they became real
+    Optional[Enum] fields with a None default (they previously weren't real
+    enums at all, so this code path was never hit).
+    """
+    import io
+    from contextlib import redirect_stdout
+
+    from primaschema.cli import app
+
+    with redirect_stdout(io.StringIO()):
+        try:
+            app(["create", "--help"])
+        except SystemExit as exc:
+            assert exc.code in (0, None)

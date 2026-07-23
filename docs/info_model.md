@@ -8,7 +8,6 @@
 ::: primaschema.schema.info.Vendor
 ::: primaschema.schema.info.Algorithm
 ::: primaschema.schema.info.Checksums
-::: primaschema.schema.info.RefSelection
 
 ## Enumerations
 
@@ -18,6 +17,9 @@
 ::: primaschema.schema.info.SchemeLicense
     options:
       show_if_no_docstring: true
-::: primaschema.schema.info.SchemeTag
+::: primaschema.schema.info.SchemeApplication
+    options:
+      show_if_no_docstring: true
+::: primaschema.schema.info.SchemeScope
     options:
       show_if_no_docstring: true

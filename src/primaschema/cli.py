@@ -48,9 +48,10 @@ from primaschema.schema.info import (
     Algorithm,
     Checksums,
     Contributor,
+    SchemeApplication,
     SchemeLicense,
+    SchemeScope,
     SchemeStatus,
-    SchemeTag,
     TargetOrganism,
     Vendor,
 )
@@ -335,9 +336,6 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
                 f"**Derived from:** {primer_scheme.primer_scheme_derived_from}\n\n"
             )
 
-        if primer_scheme.tags:
-            readme.write(f"**Tags:** {', '.join(primer_scheme.tags)}\n\n")
-
         if primer_scheme.primer_scheme_contributor:
             readme.write("## Contributors\n\n")
             for contributor in primer_scheme.primer_scheme_contributor:
@@ -517,6 +515,15 @@ class CLIPrimerScheme(PrimerScheme):
         Optional[_LicenseLiteral],
         BeforeValidator(_normalize_license),
     ] = SchemeLicense.CC_BY_SA_4FULL_STOP0.value
+    # show_default=False: cyclopts' Enum default-rendering assumes a non-None
+    # member (`default.name`), which crashes --help for an Optional[Enum]
+    # whose default is None. Neither field has a meaningful default to show.
+    primer_scheme_application: Annotated[
+        Optional[SchemeApplication], Parameter(show_default=False)
+    ] = None
+    primer_scheme_scope: Annotated[
+        Optional[SchemeScope], Parameter(show_default=False)
+    ] = None
     primer_scheme_creation_date: Annotated[
         date,
         Parameter(help="Date the primer scheme was originally created by its authors"),
@@ -550,12 +557,6 @@ class CLIPrimerScheme(PrimerScheme):
                 data["primer_scheme_development_status"] = data[
                     "primer_scheme_development_status"
                 ].upper()
-
-            # Uppercase tags if it's a list of strings
-            if "tags" in data and isinstance(data["tags"], list):
-                data["tags"] = [
-                    t.upper() if isinstance(t, str) else t for t in data["tags"]
-                ]
         return data
 
 
@@ -873,52 +874,6 @@ def update_vendor(
     ps.primer_scheme_vendor[idx] = vendor
     _save_and_rebuild_readme(info_path, ps)
     logger.info(f"Updated vendors for {scheme_label}: idx {idx} {previous} -> {vendor}")
-
-
-@modify_app.command
-def add_tag(
-    info_path: Annotated[
-        pathlib.Path,
-        Parameter(validator=validators.Path(exists=True, file_okay=True)),
-    ],
-    tag: SchemeTag,
-):
-    """Add a tag to the scheme."""
-    ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = (
-        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
-    )
-    logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
-    if tag not in ps.tags:
-        logger.debug(f"Adding tag: {tag}")
-        ps.tags = [*ps.tags, tag]
-        _save_and_rebuild_readme(info_path, ps)
-        logger.info(f"Updated tags for {scheme_label}: added {tag}")
-        return
-    logger.info(f"No change for tags on {scheme_label}: {tag} already present")
-
-
-@modify_app.command
-def remove_tag(
-    info_path: Annotated[
-        pathlib.Path,
-        Parameter(validator=validators.Path(exists=True, file_okay=True)),
-    ],
-    tag: SchemeTag,
-):
-    """Remove a tag from the scheme."""
-    ps = PrimerScheme.model_validate_json(info_path.read_text())
-    scheme_label = (
-        f"{ps.primer_scheme_name}/{ps.amplicon_size}/{ps.primer_scheme_version}"
-    )
-    logger.debug(f"Loaded scheme {scheme_label} from {info_path}")
-    if ps.tags and tag in ps.tags:
-        logger.debug(f"Removing tag: {tag}")
-        ps.tags = [t for t in ps.tags if t != tag]
-        _save_and_rebuild_readme(info_path, ps)
-        logger.info(f"Updated tags for {scheme_label}: removed {tag}")
-        return
-    logger.info(f"No change for tags on {scheme_label}: {tag} not present")
 
 
 @modify_app.command
