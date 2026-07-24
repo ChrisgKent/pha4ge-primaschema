@@ -1,7 +1,14 @@
 from datetime import date
 from pathlib import Path
 
-from primaschema.schema.index import IndexPrimerScheme, PrimerSchemeIndex, update_index
+import pytest
+
+from primaschema.schema.index import (
+    IndexPrimerScheme,
+    PrimerSchemeIndex,
+    create_index,
+    update_index,
+)
 from primaschema.schema.primer_scheme import PrimerScheme
 
 DATA_DIR = Path("test/data")
@@ -19,6 +26,7 @@ def _clone_scheme(
     version: str | None = None,
     date_created: date | None = None,
     date_added: date | None = None,
+    primer_sha256: str | None = None,
 ) -> PrimerScheme:
     data = scheme.model_dump()
     if name is not None:
@@ -29,6 +37,8 @@ def _clone_scheme(
         data["primer_scheme_creation_date"] = date_created
     if date_added is not None:
         data["primer_scheme_submission_date"] = date_added
+    if primer_sha256 is not None:
+        data["primer_scheme_checksums"]["primer_scheme_sha256"] = primer_sha256
     return PrimerScheme.model_validate(data)
 
 
@@ -137,3 +147,81 @@ def test_index_dates_absent_when_none():
     entry = IndexPrimerScheme.from_primer_scheme(ps)
     assert entry.primer_scheme_creation_date is None
     assert entry.primer_scheme_submission_date is None
+
+
+def test_create_index_builds_full_structure():
+    """create_index() builds an index from scratch, keyed by name/amplicon_size/version."""
+    ps = _load_scheme()
+    ps2 = _clone_scheme(ps, name="test2")
+
+    psi = create_index([ps, ps2])
+
+    assert set(psi.primerschemes) == {"test", "test2"}
+    assert psi.primerschemes["test"][400]["v2.0.0"].primer_scheme_name == "test"
+    assert psi.primerschemes["test2"][400]["v2.0.0"].primer_scheme_name == "test2"
+
+
+def test_add_index_primer_scheme_strict_conflict_raises():
+    """add_index_primer_scheme raises if an existing version's checksums differ and strict=True."""
+    ps = _load_scheme()
+    changed = _clone_scheme(ps, primer_sha256="0" * 64)
+    psi = create_index([ps])
+
+    with pytest.raises(ValueError, match="checksums have changed"):
+        psi.add_index_primer_scheme(
+            IndexPrimerScheme.from_primer_scheme(changed), strict=True
+        )
+
+
+def test_add_index_primer_scheme_non_strict_overwrites():
+    """add_index_primer_scheme allows a checksum-changed overwrite when strict=False."""
+    ps = _load_scheme()
+    changed = _clone_scheme(ps, primer_sha256="0" * 64)
+    psi = create_index([ps])
+
+    psi.add_index_primer_scheme(
+        IndexPrimerScheme.from_primer_scheme(changed), strict=False
+    )
+
+    entry = psi.primerschemes["test"][400]["v2.0.0"]
+    assert entry.primer_scheme_checksums.primer_scheme_sha256 == "0" * 64
+
+
+def test_remove_index_primer_scheme_removes_entry():
+    """remove_index_primer_scheme removes a present entry and reports success."""
+    ps = _load_scheme()
+    psi = create_index([ps])
+    entry = IndexPrimerScheme.from_primer_scheme(ps)
+
+    assert psi.remove_index_primer_scheme(entry) is True
+    assert psi.get_schemes_from_index("test") == []
+
+
+def test_remove_index_primer_scheme_prunes_empty_branches():
+    """Removing the only version under a name/amplicon_size prunes the now-empty branches."""
+    ps = _load_scheme()
+    psi = create_index([ps])
+    entry = IndexPrimerScheme.from_primer_scheme(ps)
+
+    psi.remove_index_primer_scheme(entry)
+
+    assert "test" not in psi.primerschemes
+
+
+def test_remove_index_primer_scheme_absent_returns_false():
+    """remove_index_primer_scheme returns False for a name/amplicon_size/version not in the index."""
+    ps = _load_scheme()
+    psi = create_index([ps])
+    other = IndexPrimerScheme.from_primer_scheme(_clone_scheme(ps, name="missing"))
+
+    assert psi.remove_index_primer_scheme(other) is False
+
+
+def test_source_commit_round_trip():
+    """source_commit survives a serialize -> deserialize cycle and is excluded when unset."""
+    psi = PrimerSchemeIndex()
+    assert "source_commit" not in psi.model_dump_json(exclude_unset=True)
+
+    psi.source_commit = "deadbeef"
+    reloaded = PrimerSchemeIndex.model_validate_json(psi.model_dump_json())
+    assert reloaded.source_commit == "deadbeef"
