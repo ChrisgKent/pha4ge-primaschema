@@ -26,7 +26,7 @@ def test_plot_single_ref_chrom_ref(tmp_path: Path):
     """plot_primers completes without error for a single-chromosome scheme."""
     out_path = tmp_path / "primer.html"
     lib.plot_primers(
-        data_dir / "primer-schemes/schemes/sars-cov-2/artic/400/v4.1.0/primer.bed",
+        data_dir / "primer-schemes/test-artic/400/v4.1.0/primer.bed",
         out_path=out_path,
     )
     assert out_path.exists()
