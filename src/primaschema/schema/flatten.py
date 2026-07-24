@@ -2,9 +2,9 @@ import csv
 import io
 
 from primaschema.schema.info import (
-    PrimerSchemeGenerator,
     PrimerSchemeChecksums,
     PrimerSchemeContributor,
+    PrimerSchemeGenerator,
     PrimerSchemeTargetOrganism,
     PrimerSchemeVendor,
 )

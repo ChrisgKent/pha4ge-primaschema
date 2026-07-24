@@ -1094,6 +1094,12 @@ def index(
             help=f"The directory to write the {INDEX_FILE_NAME} and {INDEX_FILE_NAME}.gz",
         ),
     ] = pathlib.Path("."),
+    source_commit: Annotated[
+        Optional[str],
+        Parameter(
+            help="Commit SHA of the primer schemes repository this index is built from, e.g. $GITHUB_SHA",
+        ),
+    ] = None,
 ):
     """Build a JSON index of all primer schemes in a directory"""
     # Read in current index
@@ -1101,6 +1107,9 @@ def index(
         psi = PrimerSchemeIndex.model_validate_json(index_path.read_text())
     else:
         psi = PrimerSchemeIndex()
+
+    if source_commit:
+        psi.source_commit = source_commit
 
     # Sanitise the base_url
     base_url = base_url.strip("/")

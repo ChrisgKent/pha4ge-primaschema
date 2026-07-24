@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from primaschema import METADATA_FILE_NAME, PRIMER_FILE_NAME, REFERENCE_FILE_NAME
 from primaschema.schema.info import (
-    PrimerSchemeChecksums,
     ConfiguredBaseModel,
+    PrimerSchemeChecksums,
     PrimerSchemeContributor,
-    PrimerSchemeLicense,
     PrimerSchemeDevelopmentStatus,
+    PrimerSchemeLicense,
     PrimerSchemeTargetOrganism,
 )
 from primaschema.schema.primer_scheme import PrimerScheme
@@ -158,6 +158,10 @@ class PrimerSchemeIndex(ConfiguredBaseModel):
     An index of primer schemes.
     """
 
+    source_commit: Optional[str] = Field(
+        default=None,
+        description="Commit SHA of the primer schemes repository this index was built from",
+    )
     primerschemes: dict[str, dict[int, dict[str, IndexPrimerScheme]]] = Field(
         default_factory=dict,
         description="Index of primer schemes structured as {name: {amplicon_size: {version: scheme}}}",
