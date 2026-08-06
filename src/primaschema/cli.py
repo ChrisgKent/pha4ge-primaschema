@@ -1369,7 +1369,7 @@ def get(
     ] = False,
 ):
     """Download a primer scheme by identifier"""
-    psi = load_index(index, timeout=timeout)
+    psi = load_index(index, timeout=timeout, force=force)
     schemes = resolve_schemes(
         index=psi,
         scheme_id=scheme_id,

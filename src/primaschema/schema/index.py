@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import date
 from typing import Any, Generator, Optional
@@ -14,6 +15,8 @@ from primaschema.schema.info import (
     PrimerSchemeTargetOrganism,
 )
 from primaschema.schema.primer_scheme import PrimerScheme
+
+logger = logging.getLogger(__name__)
 
 # Mirrors PrimerScheme's own pattern_primer_scheme_name validator
 # (src/primaschema/schema/info.py) - implemented as a field_validator rather
@@ -187,6 +190,55 @@ class PrimerSchemeIndex(ConfiguredBaseModel):
             for item in data:
                 yield from self._yield_schemes(item)
 
+    def validate_keys(self, force: bool = False) -> list[str]:
+        """Check every entry against the dict keys it is filed under.
+
+        add_index_primer_scheme() always files an entry under keys derived from
+        that same entry's fields, so a disagreement means the index JSON was
+        hand-crafted or corrupted. Validating the whole tree here - rather than
+        only the levels a given lookup happened to filter on - means a
+        name-only lookup and `--all` (which reaches entries via flatten(),
+        bypassing get_schemes_from_index entirely) are covered too.
+
+        Args:
+            force: If True, log mismatches as warnings instead of raising.
+
+        Returns:
+            List of human-readable mismatch descriptions (empty when valid).
+
+        Raises:
+            ValueError: If any entry disagrees with its keys and force is False.
+        """
+        mismatches: list[str] = []
+        for name, name_level in self.primerschemes.items():
+            for amplicon_size, amplicon_size_level in name_level.items():
+                for version, scheme in amplicon_size_level.items():
+                    filed_under = f"{name}/{amplicon_size}/{version}"
+                    if scheme.primer_scheme_name != name:
+                        mismatches.append(
+                            f"{filed_under}: primer_scheme_name="
+                            f"{scheme.primer_scheme_name!r}"
+                        )
+                    if scheme.amplicon_size != amplicon_size:
+                        mismatches.append(
+                            f"{filed_under}: amplicon_size={scheme.amplicon_size!r}"
+                        )
+                    if scheme.primer_scheme_version != version:
+                        mismatches.append(
+                            f"{filed_under}: primer_scheme_version="
+                            f"{scheme.primer_scheme_version!r}"
+                        )
+
+        if mismatches:
+            msg = "Corrupted index; entries disagree with their keys: " + "; ".join(
+                mismatches
+            )
+            if force:
+                logger.warning(f"{msg} (continuing due to --force)")
+            else:
+                raise ValueError(msg)
+        return mismatches
+
     def get_schemes_from_index(
         self,
         name: str,
@@ -196,12 +248,8 @@ class PrimerSchemeIndex(ConfiguredBaseModel):
         """
         Returns all schemes matching the provided criteria.
 
-        Raises:
-            ValueError: If an entry's own fields disagree with the dict keys
-                (name/amplicon_size/version) it was filed under - this can
-                only happen with a hand-crafted or corrupted index JSON,
-                since add_index_primer_scheme() always files an entry under
-                keys derived from that same entry's fields.
+        Entries are checked against their keys by validate_keys() at load time
+        (see get_scheme.load_index), so no per-lookup checking is needed here.
         """
         name_level = self.primerschemes.get(name, {})
 
@@ -210,30 +258,9 @@ class PrimerSchemeIndex(ConfiguredBaseModel):
             amplicon_size_level = name_level.get(amplicon_size, {})
             if version:
                 entry = amplicon_size_level.get(version)
-                schemes = [entry] if entry is not None else []
-            else:
-                schemes = self.flatten(amplicon_size_level)
-        else:
-            schemes = self.flatten(name_level)
-
-        for scheme in schemes:
-            if scheme.primer_scheme_name != name:
-                raise ValueError(
-                    f"Corrupted index: entry filed under name {name!r} has "
-                    f"primer_scheme_name={scheme.primer_scheme_name!r}"
-                )
-            if amplicon_size and scheme.amplicon_size != amplicon_size:
-                raise ValueError(
-                    f"Corrupted index: entry filed under amplicon_size "
-                    f"{amplicon_size!r} has amplicon_size={scheme.amplicon_size!r}"
-                )
-            if version and scheme.primer_scheme_version != version:
-                raise ValueError(
-                    f"Corrupted index: entry filed under version {version!r} "
-                    f"has primer_scheme_version={scheme.primer_scheme_version!r}"
-                )
-
-        return schemes
+                return [entry] if entry is not None else []
+            return self.flatten(amplicon_size_level)
+        return self.flatten(name_level)
 
     def add_index_primer_scheme(self, index: IndexPrimerScheme, strict=True):
         # Get or create the substructure

@@ -225,3 +225,69 @@ def test_source_commit_round_trip():
     psi.source_commit = "deadbeef"
     reloaded = PrimerSchemeIndex.model_validate_json(psi.model_dump_json())
     assert reloaded.source_commit == "deadbeef"
+
+
+def _corrupt_index(**overrides) -> PrimerSchemeIndex:
+    """Build an index whose single entry is filed under deliberately wrong keys."""
+    ps = _load_scheme()
+    psi = create_index([ps])
+    entry = psi.flatten()[0]
+    name = overrides.get("name", entry.primer_scheme_name)
+    amplicon_size = overrides.get("amplicon_size", entry.amplicon_size)
+    version = overrides.get("version", entry.primer_scheme_version)
+    psi.primerschemes = {name: {amplicon_size: {version: entry}}}
+    return psi
+
+
+def test_validate_keys_accepts_a_well_formed_index():
+    assert create_index([_load_scheme()]).validate_keys() == []
+
+
+@pytest.mark.parametrize(
+    "override,expected",
+    [
+        ({"name": "wrong-name"}, "primer_scheme_name"),
+        ({"amplicon_size": 999}, "amplicon_size"),
+        ({"version": "v9.9.9"}, "primer_scheme_version"),
+    ],
+)
+def test_validate_keys_rejects_entry_filed_under_wrong_key(override, expected):
+    """Each of the three key levels is checked, not just the ones a lookup filters on."""
+    psi = _corrupt_index(**override)
+    with pytest.raises(ValueError, match="Corrupted index") as excinfo:
+        psi.validate_keys()
+    assert expected in str(excinfo.value)
+
+
+def test_validate_keys_warns_instead_of_raising_under_force(caplog):
+    """--force leaves an escape hatch if a bad index is ever published."""
+    psi = _corrupt_index(name="wrong-name")
+    with caplog.at_level("WARNING"):
+        mismatches = psi.validate_keys(force=True)
+    assert mismatches
+    assert "continuing due to --force" in caplog.text
+
+
+def test_validate_keys_catches_corruption_a_name_only_lookup_would_miss():
+    """A name-only lookup never filters on size/version, so those keys must still be checked."""
+    psi = _corrupt_index(amplicon_size=999, version="v9.9.9")
+    name = next(iter(psi.primerschemes))
+
+    # The lookup itself returns the entry regardless; validate_keys is what catches it.
+    assert len(psi.get_schemes_from_index(name)) == 1
+    with pytest.raises(ValueError, match="Corrupted index"):
+        psi.validate_keys()
+
+
+def test_load_index_validates_keys(tmp_path):
+    """load_index is the choke point, so --all and every other path get checked."""
+    from primaschema import get_scheme
+
+    index_path = tmp_path / "index.json"
+    index_path.write_text(_corrupt_index(name="wrong-name").model_dump_json())
+
+    with pytest.raises(ValueError, match="Corrupted index"):
+        get_scheme.load_index(str(index_path))
+
+    # force downgrades it to a warning and still returns a usable index
+    assert get_scheme.load_index(str(index_path), force=True) is not None

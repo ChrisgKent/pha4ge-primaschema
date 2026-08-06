@@ -359,15 +359,22 @@ def _decompress_gzip_bounded(raw: bytes, max_bytes: int) -> bytes:
     return b"".join(chunks)
 
 
-def load_index(source: str, *, timeout: float | None = None) -> PrimerSchemeIndex:
+def load_index(
+    source: str, *, timeout: float | None = None, force: bool = False
+) -> PrimerSchemeIndex:
     """Load a PrimerSchemeIndex from a URL or local file.
 
     Args:
         source: URL or path to index JSON (optionally gzipped).
         timeout: Timeout in seconds for URL fetches.
+        force: If True, warn rather than raise when entries disagree with the
+            dict keys they are filed under.
 
     Returns:
         Parsed PrimerSchemeIndex.
+
+    Raises:
+        ValueError: If the index is corrupted and force is False.
     """
     if source.startswith("http"):
         raw = _download_bytes(source, timeout=timeout)
@@ -378,7 +385,12 @@ def load_index(source: str, *, timeout: float | None = None) -> PrimerSchemeInde
         if source.endswith(".gz")
         else raw
     )
-    return PrimerSchemeIndex.model_validate_json(data)
+    index = PrimerSchemeIndex.model_validate_json(data)
+    # Validate here rather than per-lookup: this is the one path every index
+    # takes, so it covers --all (which reaches entries via flatten()) as well
+    # as name-only lookups.
+    index.validate_keys(force=force)
+    return index
 
 
 def _require_checksums(index: IndexPrimerScheme, force: bool) -> None:
