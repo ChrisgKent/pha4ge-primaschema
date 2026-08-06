@@ -153,37 +153,46 @@ def _download_bytes(url: str, *, timeout: float | None = None) -> bytes:
 
     Raises:
         ValueError: If the URL scheme is not HTTPS.
-        DownloadError: If the download exceeds size limits.
-        httpx.HTTPError: If the request fails.
+        DownloadError: If the download exceeds size limits, or the request fails.
     """
     _ensure_https(url)
-    with (
-        httpx.Client(event_hooks={"request": [_reject_non_https_request]}) as client,
-        client.stream(
-            "GET",
-            url,
-            follow_redirects=True,
-            timeout=_resolve_timeout(timeout),
-        ) as resp,
-    ):
-        resp.raise_for_status()
-        content_length = resp.headers.get("Content-Length")
-        if content_length is not None:
-            try:
-                if int(content_length) > MAX_DOWNLOAD_BYTES:
+    try:
+        with (
+            httpx.Client(
+                event_hooks={"request": [_reject_non_https_request]}
+            ) as client,
+            client.stream(
+                "GET",
+                url,
+                follow_redirects=True,
+                timeout=_resolve_timeout(timeout),
+            ) as resp,
+        ):
+            resp.raise_for_status()
+            content_length = resp.headers.get("Content-Length")
+            if content_length is not None:
+                try:
+                    if int(content_length) > MAX_DOWNLOAD_BYTES:
+                        raise DownloadError(
+                            f"{url} exceeds max size of {MAX_DOWNLOAD_MB} MB"
+                        )
+                except ValueError:
+                    pass
+            total = 0
+            chunks: list[bytes] = []
+            for chunk in resp.iter_bytes():
+                total += len(chunk)
+                if total > MAX_DOWNLOAD_BYTES:
                     raise DownloadError(
                         f"{url} exceeds max size of {MAX_DOWNLOAD_MB} MB"
                     )
-            except ValueError:
-                pass
-        total = 0
-        chunks: list[bytes] = []
-        for chunk in resp.iter_bytes():
-            total += len(chunk)
-            if total > MAX_DOWNLOAD_BYTES:
-                raise DownloadError(f"{url} exceeds max size of {MAX_DOWNLOAD_MB} MB")
-            chunks.append(chunk)
-    return b"".join(chunks)
+                chunks.append(chunk)
+        return b"".join(chunks)
+    except httpx.HTTPError as exc:
+        # 404s, timeouts and connection errors are expected failures, not bugs.
+        # Re-raise as DownloadError so the CLI prints a message rather than a
+        # traceback (see _EXPECTED_EXCEPTIONS in cli.py).
+        raise DownloadError(f"Failed to download {url}: {exc}") from exc
 
 
 def _get_and_validate_info_json(
