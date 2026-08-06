@@ -9,6 +9,7 @@ import primaschema.cli as create_module
 import primaschema.get_scheme as get_scheme
 import primaschema.lib as lib
 import primaschema.validate as validate_module
+from primaschema import DEFAULT_INDEX_URL
 from primaschema.schema.index import PrimerSchemeIndex
 from primaschema.schema.primer_scheme import PrimerScheme
 from primaschema.util import sha256_checksum
@@ -161,7 +162,7 @@ def test_cli_create():
 @pytest.mark.network
 def test_get_scheme(tmp_path: Path):
     """download_schemes fetches a real scheme from the default index."""
-    psi = get_scheme.load_index(get_scheme.DEFAULT_INDEX_URL)
+    psi = get_scheme.load_index(DEFAULT_INDEX_URL)
     schemes = get_scheme.resolve_schemes(
         index=psi,
         scheme_id="artic/400/v4.1.0",
@@ -189,7 +190,7 @@ def test_get_scheme_invalid_id():
 @pytest.mark.network
 def test_get_scheme_nonexistent(tmp_path: Path):
     """resolve_schemes raises ValueError when the scheme_id is not in the index."""
-    psi = get_scheme.load_index(get_scheme.DEFAULT_INDEX_URL)
+    psi = get_scheme.load_index(DEFAULT_INDEX_URL)
     with pytest.raises(ValueError, match="not found"):
         get_scheme.resolve_schemes(
             index=psi,
