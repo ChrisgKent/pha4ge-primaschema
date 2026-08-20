@@ -7,6 +7,7 @@ from pathlib import Path
 METADATA_FILE_NAME: str = "info.json"
 PRIMER_FILE_NAME: str = "primer.bed"
 REFERENCE_FILE_NAME: str = "reference.fasta"
+README_FILE_NAME: str = "README.md"
 
 INDEX_FILE_NAME: str = "index.json"
 

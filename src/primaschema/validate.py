@@ -12,6 +12,7 @@ from pydantic_core import from_json
 from primaschema import (
     METADATA_FILE_NAME,
     PRIMER_FILE_NAME,
+    README_FILE_NAME,
     REFERENCE_FILE_NAME,
     SCHEMA_DIR,
 )
@@ -187,30 +188,24 @@ def validate_readme(infopath: Path, primer_scheme: PrimerScheme | None = None):
     if primer_scheme is None:
         primer_scheme = PrimerScheme.model_validate_json(infopath.read_text())
 
-    scheme_subpath = (
-        Path(primer_scheme.primer_scheme_name)
-        / str(primer_scheme.amplicon_size)
-        / primer_scheme.primer_scheme_version
-    )
-
-    # Check the ReadME.md
-    readme = infopath.parent / "README.md"
+    # Check the README.md
+    readme = infopath.parent / README_FILE_NAME
     if not readme.exists():
         raise FileNotFoundError(f"{readme} does not exist")
 
     # Check the readme has been updated
-    readme = readme.read_text()
-    if readme.find(primer_scheme.primer_scheme_name) == -1:
+    readme_text = readme.read_text()
+    if readme_text.find(primer_scheme.primer_scheme_name) == -1:
         raise ValueError(
-            f"Scheme name ({primer_scheme.primer_scheme_name}) not found in {readme}: {scheme_subpath}"
+            f"Scheme name ({primer_scheme.primer_scheme_name}) not found in {README_FILE_NAME}"
         )
-    if readme.find(str(primer_scheme.amplicon_size)) == -1:
+    if readme_text.find(str(primer_scheme.amplicon_size)) == -1:
         raise ValueError(
-            f"Amplicon size ({primer_scheme.amplicon_size}) not found in {readme}: {scheme_subpath}"
+            f"Amplicon size ({primer_scheme.amplicon_size}) not found in {README_FILE_NAME}"
         )
-    if readme.find(primer_scheme.primer_scheme_version) == -1:
+    if readme_text.find(primer_scheme.primer_scheme_version) == -1:
         raise ValueError(
-            f"Scheme version ({primer_scheme.primer_scheme_version}) not found in {readme}: {scheme_subpath}"
+            f"Scheme version ({primer_scheme.primer_scheme_version}) not found in {README_FILE_NAME}"
         )
 
 

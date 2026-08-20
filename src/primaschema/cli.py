@@ -27,6 +27,7 @@ from primaschema import (
     INDEX_FILE_NAME,
     METADATA_FILE_NAME,
     PRIMER_FILE_NAME,
+    README_FILE_NAME,
     REFERENCE_FILE_NAME,
 )
 from primaschema.get_scheme import (
@@ -312,7 +313,7 @@ def generate_readme(path: pathlib.Path, primer_scheme: PrimerScheme):
     :type pngs: list[pathlib.Path]
     """
 
-    with open(path / "README.md", "w", encoding="utf-8") as readme:
+    with open(path / README_FILE_NAME, "w", encoding="utf-8") as readme:
         readme.write(
             f"# {primer_scheme.primer_scheme_name} {primer_scheme.amplicon_size}bp {primer_scheme.primer_scheme_version}\n\n"
         )
